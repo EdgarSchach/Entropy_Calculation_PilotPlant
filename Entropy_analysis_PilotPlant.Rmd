@@ -25,6 +25,7 @@ library(doFuture)
 library(tidyverse)
 library(broom)
 library(readxl)
+library(ggpubr)   
 
 source(file = "./functions_paper2.R")
 source("./mlaXMLSession.R")
@@ -57,7 +58,12 @@ type.levels <- c("ti00","ti0k","tij0","tijk", # partitions
 
 sample_lvl <- c("Feed","Recal Feed","Magnetic","Non-magnetic","Product","Coarse","Fine")
 machine_lvl <- c("Sieve","Magnetic separator","Mill")
-machine.nms <- c("sieve"="Sieve","spiral_separator"="Spiral Separator","mill1"="Mill1","magnetic_separator"="Magnetic Separator","sulphide_flotation"="Sulphide-Flotation","screw_classifier"="Screw-Classifier","hydrocyclone"="Hydro-Cyclone","shaking_table"="Shaking-Table","mill2"="Mill2")
+machine.nms <- c("Sieve"="Sieve","spiral Con."="Spiral Concentrator","Mill1"="Mill1","Magnetic Con."="Magnetic Separator","Sulfide Flotation"="Sulphide-Flotation","Screw Class."="Screw-Classifier","Hydrocyclone"="Hydro-Cyclone","Shaking Table"="Shaking-Table","Mill2"="Mill2")
+
+machine_labeller <- function(variable,value){
+  return(machine.nms[value])
+}
+
 machine.lvl.extended <- machine.nms
 names(machine.lvl.extended) <-  NULL
 
@@ -74,11 +80,11 @@ The MLA-data is saved in a R-file with the name MLA_Particles.RData. An appropri
 load("./MLA_Particles.RData")
 
 #Loading machine data from a csv file. 
-machines <-  read_delim("Machines.csv", delim = ";", 
+machines <-  read_delim("Machines_MLA.csv", delim = ";", 
     escape_double = FALSE, locale = locale(decimal_mark = ",", 
         grouping_mark = "."), trim_ws = TRUE)
 
-
+machine_levels <- unique(machines$machine) 
 #Transform machines into a list format
 
 machines.transform <- function(machine){
@@ -152,7 +158,7 @@ The measured MLA samples do not scale with the actual mass streams of the sample
 - The particle number is given by 1g/ mean mass
 
 ```{r}
-particle_number_calculation <- function(mlaSample, th.mass = 1){
+particle_number_calculation <- function(mlaSample, th.mass = 0.001){
   
   relevants <- function(x) data.frame(ECD = sqrt(4*x$geomProps$ParticleArea/pi),
                                       mass = x$geomProps$Mass,
@@ -263,24 +269,24 @@ batch_entropy.parallel <- function(MLA.sample,part.numbers){
 ```
 
 ```{r}
-availableCores()
-plan(multisession,workers = availableCores() -1)
-
-#entropies ungrouped ####
-Entropies_ungrouped <-  map(part_dat, ~future_replicate(20,batch_entropy.parallel(MLA.sample = .x,part.numbers = 100000),future.seed = T,simplify = F))
-Entropies.agg_ungrouped <- map(Entropies_ungrouped,~bind_rows(.x,.id = "N"))
-Entropies.agg_ungrouped <- bind_rows(Entropies.agg_ungrouped,.id = "Sample")
-Entropies.agg_ungrouped <- Entropies.agg_ungrouped %>%
-  group_by(Sample,entropy_type,aggregation) %>%
-  summarise(mean_entropy = mean(entropy), sd_entropy = sd(entropy))
-save(Entropies.agg_ungrouped,file = "Entropies_ungrouped.RData")
-Entropies_grouped <-  map(part_dat_grouped, ~future_replicate(20,batch_entropy.parallel(MLA.sample = .x,part.numbers = 100000),future.seed = T,simplify = F))
-Entropies.agg_grouped <- map(Entropies_grouped,~bind_rows(.x,.id = "N"))
-Entropies.agg_grouped <- bind_rows(Entropies.agg_grouped,.id = "Sample")
-Entropies.agg_grouped <- Entropies.agg_grouped %>%
-  group_by(Sample,entropy_type,aggregation) %>%
-  summarise(mean_entropy = mean(entropy), sd_entropy = sd(entropy))
-save(Entropies.agg_grouped,file = "Entropies_grouped.RData")
+# availableCores()
+# plan(multisession,workers = availableCores() -1)
+# 
+# #entropies ungrouped ####
+# Entropies_ungrouped <-  map(part_dat, ~future_replicate(20,batch_entropy.parallel(MLA.sample = .x,part.numbers = 100000),future.seed = T,simplify = F))
+# Entropies.agg_ungrouped <- map(Entropies_ungrouped,~bind_rows(.x,.id = "N"))
+# Entropies.agg_ungrouped <- bind_rows(Entropies.agg_ungrouped,.id = "Sample")
+# Entropies.agg_ungrouped <- Entropies.agg_ungrouped %>%
+#   group_by(Sample,entropy_type,aggregation) %>%
+#   summarise(mean_entropy = mean(entropy), sd_entropy = sd(entropy))
+# save(Entropies.agg_ungrouped,file = "Entropies_ungrouped.RData")
+# Entropies_grouped <-  map(part_dat_grouped, ~future_replicate(20,batch_entropy.parallel(MLA.sample = .x,part.numbers = 100000),future.seed = T,simplify = F))
+# Entropies.agg_grouped <- map(Entropies_grouped,~bind_rows(.x,.id = "N"))
+# Entropies.agg_grouped <- bind_rows(Entropies.agg_grouped,.id = "Sample")
+# Entropies.agg_grouped <- Entropies.agg_grouped %>%
+#   group_by(Sample,entropy_type,aggregation) %>%
+#   summarise(mean_entropy = mean(entropy), sd_entropy = sd(entropy))
+# save(Entropies.agg_grouped,file = "Entropies_grouped.RData")
 
 load("Entropies_ungrouped.RData")
 load("Entropies_grouped.RData")
@@ -335,111 +341,162 @@ print(g)
 
 ggsave(filename = "entropy.batches.normalized_grouped.png",device = "png",width = 30, height = 20, units = "cm")
 
+#plot for sieve
+sieve_data_product <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$Sieve$product_stage)
+sieve_data_feed <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$Sieve$feed_stage)
+sieve_data <- bind_rows(sieve_data_feed,sieve_data_product,.id = "stage")
+sieve <- ggplot(sieve_data,aes(x = Sample, y = mean_entropy, fill = type )) +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(ymin=mean_entropy-sd_entropy, ymax=mean_entropy+sd_entropy), width=.2,
+                 position=position_dodge(.9)) +
+  facet_grid(type~stage,labeller = labeller(stage = c("1" = "Feed Stage","2" = "Product Stage")), scales = "free") +
+  scale_fill_manual(values = entropy_colors) +
+  labs(x = "Sample Point", y = "entropy value", title = "Sieve") +
+  theme_classic()
+plot(sieve)
+
+#plot for spiral classifier 
+spiral_data_product <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$`Spiral Con.`$product_stage)
+spiral_data_feed <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$`Spiral Con.`$feed_stage)
+spiral_data <- bind_rows(spiral_data_feed,spiral_data_product,.id = "stage")
+spiral <- ggplot(spiral_data,aes(x = Sample, y = mean_entropy, fill = type )) +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(ymin=mean_entropy-sd_entropy, ymax=mean_entropy+sd_entropy), width=.2,
+                 position=position_dodge(.9)) +
+  facet_grid(type~stage,labeller = labeller(stage = c("1" = "Feed Stage","2" = "Product Stage")), scales = "free") +
+  scale_fill_manual(values = entropy_colors) +
+  labs(x = "Sample Point", y = "entropy value", title = "Spiral Classifier") +
+  theme_classic()
+plot(spiral)
+
+#plot for mill1
+#plot for spiral classifier 
+mill1_data_product <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$Mill1$product_stage)
+mill1_data_feed <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$Mill1$feed_stage)
+mill1_data <- bind_rows(mill1_data_feed,mill1_data_product,.id = "stage")
+mill1 <- ggplot(mill1_data,aes(x = Sample, y = mean_entropy, fill = type )) +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(ymin=mean_entropy-sd_entropy, ymax=mean_entropy+sd_entropy), width=.2,
+                 position=position_dodge(.9)) +
+   facet_grid(type~stage,labeller = labeller(stage = c("1" = "Feed Stage","2" = "Product Stage")), scales = "free") +
+  scale_fill_manual(values = entropy_colors) +
+  labs(x = "Sample Point", y = "entropy value", title = "Mill1") +
+  theme_classic()
+plot(mill1)
+
+#plot for magnetic separation
+
+mag_sep_data_product <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$`Magnetic Con.`$product_stage)
+mag_sep_data_feed <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$`Magnetic Con.`$feed_stage)
+mag_sep_data <- bind_rows(mag_sep_data_feed,mag_sep_data_product,.id = "stage")
+mag_sep <- ggplot(mag_sep_data,aes(x = Sample, y = mean_entropy, fill = type )) +
+  geom_bar(stat = "identity",position = "dodge") +
+  geom_errorbar(aes(ymin=mean_entropy-sd_entropy, ymax=mean_entropy+sd_entropy), width=.2,
+                 position=position_dodge(.9)) +
+  facet_grid(type~stage,labeller = labeller(stage = c("1" = "Feed Stage","2" = "Product Stage")), scales = "free") +
+  scale_fill_manual(values = entropy_colors) +
+  labs(x = "Sample Point", y = "entropy value", title = "Magnetic Separation") +
+  theme_classic()
+plot(mag_sep)
+
+#plot for sulfide flotation
+
+flotation_data_product <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$`Sulfide Flotation`$product_stage)
+flotation_data_feed <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$`Sulfide Flotation`$feed_stage)
+flotation_data <- bind_rows(flotation_data_feed,flotation_data_product,.id = "stage")
+flotation <- ggplot(flotation_data,aes(x = Sample, y = mean_entropy, fill = type )) +
+  geom_bar(stat = "identity",position = "dodge") +
+  geom_errorbar(aes(ymin=mean_entropy-sd_entropy, ymax=mean_entropy+sd_entropy), width=.2,
+                 position=position_dodge(.9)) +
+  facet_grid(type~stage,labeller = labeller(stage = c("1" = "Feed Stage","2" = "Product Stage")), scales = "free") +
+  scale_fill_manual(values = entropy_colors) +
+  labs(x = "Sample Point", y = "entropy value", title = "Sulfide Flotation") +
+  theme_classic()
+plot(flotation)
+
+screw_class_data_product <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$`Screw Class.`$product_stage)
+screw_class_data_feed <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$`Screw Class.`$feed_stage)
+screw_class_data <- bind_rows(screw_class_data_feed,screw_class_data_product,.id = "stage")
+screw_class <- ggplot(screw_class_data,aes(x = Sample, y = mean_entropy, fill = type )) +
+  geom_bar(stat = "identity",position = "dodge") +
+  geom_errorbar(aes(ymin=mean_entropy-sd_entropy, ymax=mean_entropy+sd_entropy), width=.2,
+                 position=position_dodge(.9)) +
+  facet_grid(type~stage,labeller = labeller(stage = c("1" = "Feed Stage","2" = "Product Stage")), scales = "free") +
+  scale_fill_manual(values = entropy_colors) +
+  labs(x = "Sample Point", y = "entropy value", title = "Screw Classifier") +
+  theme_classic()
+plot(screw_class)
+
+hydrocyclone_data_product <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$Hydrocyclone$product_stage)
+hydrocyclone_data_feed <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$Hydrocyclone$feed_stage)
+hydrocyclone_data <- bind_rows(hydrocyclone_data_feed,hydrocyclone_data_product,.id = "stage")
+hydrocyclone <- ggplot(hydrocyclone_data,aes(x = Sample, y = mean_entropy, fill = type )) +
+  geom_bar(stat = "identity",position = "dodge") +
+  geom_errorbar(aes(ymin=mean_entropy-sd_entropy, ymax=mean_entropy+sd_entropy), width=.2,
+                 position=position_dodge(.9)) +
+  facet_grid(type~stage,labeller = labeller(stage = c("1" = "Feed Stage","2" = "Product Stage")), scales = "free") +
+  scale_fill_manual(values = entropy_colors) +
+  labs(x = "Sample Point", y = "entropy value", title = "Hydrocyclone") +
+  theme_classic()
+plot(hydrocyclone)
+
+shaking_table_data_product <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$`Shaking Table`$product_stage)
+shaking_table_data_feed <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$`Shaking Table`$feed_stage)
+shaking_table_data <- bind_rows(shaking_table_data_feed,shaking_table_data_product,.id = "stage")
+shaking_table <- ggplot(shaking_table_data,aes(x = Sample, y = mean_entropy, fill = type )) +
+  geom_bar(stat = "identity",position = "dodge") +
+  geom_errorbar(aes(ymin=mean_entropy-sd_entropy, ymax=mean_entropy+sd_entropy), width=.2,
+                 position=position_dodge(.9)) +
+  facet_grid(type~stage,labeller = labeller(stage = c("1" = "Feed Stage","2" = "Product Stage")), scales = "free") +
+  scale_fill_manual(values = entropy_colors) +
+  labs(x = "Sample Point", y = "entropy value", title = "Shaking Table") +
+  theme_classic()
+plot(shaking_table)
+
+#mill2 
+
+mill2_data_product <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$Mill2$product_stage)
+mill2_data_feed <- Entropies.agg_grouped_1g %>% filter(Sample %in% machines$Mill2$feed_stage)
+mill2_data <- bind_rows(mill2_data_feed,mill2_data_product,.id = "stage")
+mill2 <- ggplot(mill2_data,aes(x = Sample, y = mean_entropy, fill = type )) +
+  geom_bar(stat = "identity",position = "dodge") +
+  geom_errorbar(aes(ymin=mean_entropy-sd_entropy, ymax=mean_entropy+sd_entropy), width=.2,
+                 position=position_dodge(.9)) +
+  facet_grid(type~stage,labeller = labeller(stage = c("1" = "Feed Stage","2" = "Product Stage")), scales = "free") +
+  scale_fill_manual(values = entropy_colors) +
+  labs(x = "Sample Point", y = "entropy value", title = "Mill2") +
+  theme_classic()
+plot(mill2)
+
+
+plots = list(Sieve = sieve,
+             Spiral_Classifier = spiral,
+             Mill1 = mill1,
+             Magnetic_Separator = mag_sep,
+             Sulfide_Flotation = flotation,
+             Screw_Classifier = screw_class,
+             Hydrocyclone = hydrocyclone,
+             Shaking_Table = shaking_table,
+             Mill2 = mill2)
+
+ggarrange(plotlist = plots,ncol = 2,nrow = 5,
+          common.legend = T,
+          legend = "right",
+          hjust = c(-2,-0.4,-1),
+          vjust = 0.5,
+          heights = c(0.7,0.7,0.7),
+         legend.grob = get_legend(plots),
+          widths = c(1,1,1))
+
+ggsave(filename = "batch.entropies.png",device = "png",width = 20, height = 50, units = "cm")
 ```
 ## Calculation of entropies for each machine in the pilot plant: 
 
-```{r}
-machine <- machines$`Screw Class.`
-part.dat <- part_dat
 
-machine.entropy <- function(machine,part.dat) {
-
-samples_ps <- part_dat[machine$product_stage]
-
-if(length(machine$product_stage)>1){
-  
-  
-Nij0 <- map(samples_ps,colSums) 
-
-
-m000 <- sapply(samples_ps,sum) %*% clo(machine$weights[machine$product_stage])
-m0j0 <- sapply(samples_ps,colSums) %*% clo(machine$weights[machine$product_stage])
-
-
-wi <- clo(machine$weights[machine$product_stage])/(sapply(samples_ps,sum)/m000)
-
-cij0 <- map(Nij0,~.x/m000)
-
-
-cijk <- map(samples_ps,~sweep(.x,1,rowSums(.x),"/"))
-
-
-Pi0k <- sapply(samples_ps,rowSums)
-pi0k <- map(Pi0k,~.x/m000)
-#pijk <- map(samples_ps,~sweep(.x,2,m0j0,"/"))
-pijk <- map2(samples_ps,Nij0,~sweep(.x,2,.y,"/"))
-
-ent_cij0 <- sapply(cij0,.entropy)
-ent_cij0 <- ent_cij0 %*% wi
-
-ent_cijk <- map(cijk,~apply(.x,1,.entropy))
-ent_cijk <- map2(pi0k,ent_cijk,~.x%*%.y)
-ent_cijk <- wi %*% unlist(ent_cijk)
-
-ent_pi0k <- sapply(pi0k,.entropy)
-ent_pi0k <- wi %*% ent_pi0k
-
-ent_pijk <- map(pijk,~apply(.x,2,.entropy))
-ent_pijk <- map2(ent_pijk,cij0,~.x%*%.y)
-ent_pijk <- wi %*% unlist(ent_pijk)
-
-ent_RF_cij0.pijk <- data.frame(c0j0 = ent_cij0,
-                               p0jk = ent_pijk)
-ent_RF_pi0k.cijk <- data.frame(p00k = ent_pi0k,
-                               c0jk = ent_cijk)
-
-ent_RF <- list(pi0k.cijk = ent_RF_pi0k.cijk,
-               cij0.pijk = ent_RF_cij0.pijk)
-ent_RF <- map(ent_RF,~gather(.x,key = "entropy_type",value = "entropy")) %>% bind_rows(.id = "aggregation")
-
-#### Calculation of Product Stage from original MLA samples: 
-
-ent_P <- map(samples_ps,batch.entropy.cal)
-ent_P <- bind_rows(ent_P,.id = "Sample")
-weights <- tibble(Sample = machine$product_stage,
-                  weights = clo(machine$weights[machine$product_stage]))
-ent_P <- right_join(ent_P,weights,by = "Sample")
-ent_P <- ent_P %>% mutate(weighted_entropy = entropy*weights) %>%  group_by(aggregation,entropy_type) %>%
-  summarise(entropy = sum(weighted_entropy))
-
-ti00 <- sapply(samples_ps,sum)/m000
-Ti00 <- clo(machine$weights[machine$product_stage])
-ent_ti00 <- map2(Ti00,ti00,~-.x*log(.y)) %>% unlist() %>% sum()
-
-ent_P <- ent_P %>% ungroup() %>%
-  add_row( entropy_type = "ti00", aggregation = "c0j0.p0jk", entropy = ent_ti00) %>%
-  add_row( entropy_type = "ti00", aggregation = "p00k.c0jk", entropy = ent_ti00)
-ent_P$entropy_type <- str_replace_all(ent_P$entropy_type,c("c0j0"="cij0","c0jk"="cijk","p00k"="pi0k","p0jk"="pijk"))
-ent_P$aggregation <-  str_replace_all(ent_P$aggregation,c("c0j0"="ti00.cij0","c0jk"="cijk","p00k"="ti00.pi0k","p0jk"="pijk"))
-
-ent <- list(ent_P = ent_P,
-            ent_RF = ent_RF)
-
-ent <- bind_rows(ent,.id = "Stage")
-}else{
- 
-}
-
-
-
-return(ent)
-  
-}
-
-#### Calculation of recalculated Feed from original MLA sample ####
-
-
-
-
-g <- ggplot(ent,aes(aggregation,entropy,fill = entropy_type)) +
-  geom_bar(stat = "identity") +
-   scale_fill_manual(values = entropy_colors)
-print(g)
-```
 
 
 ```{r}
-machine <- machines$Mill2
+machine <- machines$Hydrocyclone
 particle.numbers
 total.number <-  10000
 replicates <- 20
@@ -465,7 +522,7 @@ idx <- map2(samples,numbers,~sample(c(1:nrow(.x)),size = .y,replace = T))
 boots <- map2(samples,idx,~.x[.y,])
 boots_f <- boots[machine$feed_stage]
 boots_p <- boots[machine$product_stage]
-boots_f_recal <- bind_rows(boots_p)
+boots_f_recal <- list(bind_rows(boots_p))
 if(pl > 1){
 entropy <- entropyforboots.particles(boots_f_recal,boots_p,weights = machine$weights[machine$weights])
 }else{
@@ -477,12 +534,47 @@ return(entropy)
 availableCores()
 plan(multisession,workers = availableCores() -1)
 
-entropies <-  future_replicate(replicates,parallel.calculation(samples = products,numbers = p_num),future.seed = T,simplify = F)
+entropies <-  future_replicate(replicates,parallel.calculation(samples = samples,numbers = p_num),future.seed = T,simplify = F)
 entropies_agg <- entropies %>% bind_rows(.id = "N") %>% group_by(stage,aggregation,entropy_type) %>% 
   summarise(mean_entropy = mean(entropy),sd_entropy = sd(entropy))
+return(entropies_agg)
 }
-test_1 <- machine.entropy(machines$Hydrocyclone,particle.numbers = particle.numbers,total.number = 10000,replicates = 20)
+#test_1 <- machine.entropy(machines$Hydrocyclone,particle.numbers = particle.numbers,total.number = 10000,replicates = 20)
+#test_2 <- machine.entropy(machines$Mill2,particle.numbers = particle.numbers, total.number = 10000, replicates = 20)
+#entropies_agg %>% group_by(stage,aggregation) %>% summarise(entropy = sum(mean_entropy))
 
-entropies_agg %>% group_by(stage,aggregation) %>% summarise(entropy = sum(mean_entropy))
+#machine_entropies <- map(machines,~machine.entropy(.x,particle.numbers = particle.numbers,total.number = 100000,replicates = 250)) 
+save(machine_entropies,file = "machine_entropies.RData")
+load("./machine_entropies.RData")
+
+machine_entropies_agg. <- machine_entropies %>% bind_rows(.id = "machine") %>% filter(aggregation != "c0j0.tij0.pijk")
+
+g <- ggplot(machine_entropies_agg.,aes(x = aggregation, y = mean_entropy, fill = entropy_type)) +
+  geom_bar(stat = "identity") +
+  facet_grid(machine~stage) +
+  theme_bw() +
+  scale_fill_manual(values = entropy_colors)
+print(g)
+
+feed_stage <- machine_entropies_agg. %>% filter(stage == "feed")
+product_stage <- machine_entropies_agg. %>% filter(stage == "product")
+
+
+entropy_differences <- right_join(feed_stage,product_stage,by = c("machine","aggregation","entropy_type")) %>% mutate(entropy_diff = mean_entropy.y-mean_entropy.x)
+
+machine.nms <- c("Sieve"="Sieve","spiral Con."="Spiral Concentrator","Mill1"="Mill1","Magnetic Con."="Magnetic Separator","Sulfide Flotation"="Sulphide-Flotation","Screw Class."="Screw-Classifier","Hydrocyclone"="Hydro-Cyclone","Shaking Table"="Shaking-Table","Mill2"="Mill2")
+machine.lvl.extended <- machine.nms
+names(machine.lvl.extended) <-  NULL
+
+g <- ggplot(entropy_differences,aes(x = entropy_type,y = entropy_diff)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(vars(factor(machine,levels = machine_levels)))  +
+  labs(x = "entropy contribution", y = "entropy difference") +
+  theme_bw()
+print(g)
+
+```
+```{r}
+
 ```
 

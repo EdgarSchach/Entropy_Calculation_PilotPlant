@@ -1,0 +1,98 @@
+```{r}
+machine <- machines$`Screw Class.`
+part.dat <- part_dat
+
+machine.entropy <- function(machine,part.dat) {
+
+samples_ps <- part_dat[machine$product_stage]
+
+if(length(machine$product_stage)>1){
+  
+  
+Nij0 <- map(samples_ps,colSums) 
+
+
+m000 <- sapply(samples_ps,sum) %*% clo(machine$weights[machine$product_stage])
+m0j0 <- sapply(samples_ps,colSums) %*% clo(machine$weights[machine$product_stage])
+
+
+wi <- clo(machine$weights[machine$product_stage])/(sapply(samples_ps,sum)/m000)
+
+cij0 <- map(Nij0,~.x/m000)
+
+
+cijk <- map(samples_ps,~sweep(.x,1,rowSums(.x),"/"))
+
+
+Pi0k <- sapply(samples_ps,rowSums)
+pi0k <- map(Pi0k,~.x/m000)
+#pijk <- map(samples_ps,~sweep(.x,2,m0j0,"/"))
+pijk <- map2(samples_ps,Nij0,~sweep(.x,2,.y,"/"))
+
+ent_cij0 <- sapply(cij0,.entropy)
+ent_cij0 <- ent_cij0 %*% wi
+
+ent_cijk <- map(cijk,~apply(.x,1,.entropy))
+ent_cijk <- map2(pi0k,ent_cijk,~.x%*%.y)
+ent_cijk <- wi %*% unlist(ent_cijk)
+
+ent_pi0k <- sapply(pi0k,.entropy)
+ent_pi0k <- wi %*% ent_pi0k
+
+ent_pijk <- map(pijk,~apply(.x,2,.entropy))
+ent_pijk <- map2(ent_pijk,cij0,~.x%*%.y)
+ent_pijk <- wi %*% unlist(ent_pijk)
+
+ent_RF_cij0.pijk <- data.frame(c0j0 = ent_cij0,
+                               p0jk = ent_pijk)
+ent_RF_pi0k.cijk <- data.frame(p00k = ent_pi0k,
+                               c0jk = ent_cijk)
+
+ent_RF <- list(pi0k.cijk = ent_RF_pi0k.cijk,
+               cij0.pijk = ent_RF_cij0.pijk)
+ent_RF <- map(ent_RF,~gather(.x,key = "entropy_type",value = "entropy")) %>% bind_rows(.id = "aggregation")
+
+#### Calculation of Product Stage from original MLA samples: 
+
+ent_P <- map(samples_ps,batch.entropy.cal)
+ent_P <- bind_rows(ent_P,.id = "Sample")
+weights <- tibble(Sample = machine$product_stage,
+                  weights = clo(machine$weights[machine$product_stage]))
+ent_P <- right_join(ent_P,weights,by = "Sample")
+ent_P <- ent_P %>% mutate(weighted_entropy = entropy*weights) %>%  group_by(aggregation,entropy_type) %>%
+  summarise(entropy = sum(weighted_entropy))
+
+ti00 <- sapply(samples_ps,sum)/m000
+Ti00 <- clo(machine$weights[machine$product_stage])
+ent_ti00 <- map2(Ti00,ti00,~-.x*log(.y)) %>% unlist() %>% sum()
+
+ent_P <- ent_P %>% ungroup() %>%
+  add_row( entropy_type = "ti00", aggregation = "c0j0.p0jk", entropy = ent_ti00) %>%
+  add_row( entropy_type = "ti00", aggregation = "p00k.c0jk", entropy = ent_ti00)
+ent_P$entropy_type <- str_replace_all(ent_P$entropy_type,c("c0j0"="cij0","c0jk"="cijk","p00k"="pi0k","p0jk"="pijk"))
+ent_P$aggregation <-  str_replace_all(ent_P$aggregation,c("c0j0"="ti00.cij0","c0jk"="cijk","p00k"="ti00.pi0k","p0jk"="pijk"))
+
+ent <- list(ent_P = ent_P,
+            ent_RF = ent_RF)
+
+ent <- bind_rows(ent,.id = "Stage")
+}else{
+ 
+}
+
+
+
+return(ent)
+  
+}
+
+#### Calculation of recalculated Feed from original MLA sample ####
+
+
+
+
+g <- ggplot(ent,aes(aggregation,entropy,fill = entropy_type)) +
+  geom_bar(stat = "identity") +
+   scale_fill_manual(values = entropy_colors)
+print(g)
+```

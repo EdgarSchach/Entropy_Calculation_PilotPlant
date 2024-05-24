@@ -1,0 +1,31 @@
+﻿machine;sample;stage;weights
+Sieve;S01;Feed;810,048
+Sieve;S06;Feed;477,631
+Sieve;S02;Product;776,894
+Sieve;S03;Product;510,785
+Spiral Con.;S03;Feed;510,785
+Spiral Con.;S04;Product;477,631
+Spiral Con.;S05;Product;33,153
+Mill1;S04;Feed;477,631
+Mill1;S06;Product;477,631
+Magnetic Con.;S02;Feed;776,894
+Magnetic Con.;S07;Product;545,89
+Magnetic Con.;S08;Product;231,004
+Sulfide Flotation;S07;Feed;545,89
+Sulfide Flotation;S10;Product;15,616
+Sulfide Flotation;S09;Product;517,616
+Sulfide Flotation;S22;Product;131,446
+Screw Class.;S09;Feed;517,616
+Screw Class.;S18;Feed;119,238
+Screw Class.;S11;Product;559,938
+Screw Class.;S12;Product;76,915
+Hydrocyclone;S12;Feed;76,915
+Hydrocyclone;S14;Product;12
+Hydrocyclone;S13;Product;64,915
+Shaking Table;S11;Feed;559,938
+Shaking Table;S15;Product;6,946
+Shaking Table;S19;Product;5,593
+Shaking Table;S16;Product;119,238
+Shaking Table;S17;Product;428,162
+Mill2;S16;Feed;119,238
+Mill2;S18;Product;119,238

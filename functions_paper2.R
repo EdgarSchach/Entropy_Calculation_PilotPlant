@@ -46,7 +46,7 @@ batch.entropy.norm <- function(part.dat){
 entropyforboots.particles <- function(feed,products,weights){
   pl <- length(products)
   # Calculating Extensive Properties for Feed Batch:
-  #feed <- feed[[1]]
+  feed <- feed[[1]]
   F000 <- sum(feed)
   F0j0 <- colSums(feed)
   F00k <- rowSums(feed)
@@ -89,8 +89,8 @@ entropyforboots.particles <- function(feed,products,weights){
   ent_c0jk <- apply(c0jk,1,.entropy)
   ent_c0jk <- p00k %*% ent_c0jk
   
-  c0j0.p0jk <- c(c0j0 = ent_c0j0, p0jk = ent_p0jk, p0jk.norm = ent_p0jk.norm)
-  p00k.c0jk <- c(p00k = ent_p00k, c0jk = ent_c0jk, p00k.norm = ent_p00k.norm)
+  ti00.cij0.pijk <- c(ti00=  0, cij0 = ent_c0j0, pijk = ent_p0jk, p0jk.norm = ent_p0jk.norm)
+  ti00.pi0k.cijk <- c(ti00 = 0, pi0k = ent_p00k, cijk = ent_c0jk, p00k.norm = ent_p00k.norm)
   
   res_feedstage <- list(c0j0.p0jk = c0j0.p0jk,
                         p00k.c0jk = p00k.c0jk)
