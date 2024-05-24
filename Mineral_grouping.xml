@@ -1,0 +1,151 @@
+<?xml version="1.0"?>
+<!--MLA Mineral Grouping File configuration file created at Sunday, November 17, 2019. FEI Company-->
+<Config Name="mineral grouping">
+	<Group Name="Silicates">
+		<Group Name="Group Colour">
+			<Entry Name="red" Type="Long" Value="255"/>
+			<Entry Name="green" Type="Long" Value="225"/>
+			<Entry Name="blue" Type="Long" Value="225"/></Group>
+		<Entry Name="Quartz" Type="Bool" Value="0"/>
+		<Entry Name="Quartz Mix 1 (Qtz70-FeO30)" Type="Bool" Value="0"/>
+		<Entry Name="Quartz Mix 2 (Qtz70-Cal30)" Type="Bool" Value="0"/>
+		<Entry Name="Quartz Mix 6 (Qtz70-Ttn30)" Type="Bool" Value="0"/>
+		<Entry Name="Quartz Mix 7 (Qtz70-Cas30)" Type="Bool" Value="0"/>
+		<Entry Name="Quartz Mix 8 (Qtz70-Chm30)" Type="Bool" Value="0"/>
+		<Entry Name="Quartz Mix 9 (Qtz70-Hst30)" Type="Bool" Value="0"/>
+		<Entry Name="Feldspar 1 (K-Spar)" Type="Bool" Value="0"/>
+		<Entry Name="Feldspar 2 (Albite)" Type="Bool" Value="0"/>
+		<Entry Name="Feldspar 3 (Oligoclase)" Type="Bool" Value="0"/>
+		<Entry Name="Garnet 1 (Grossular_Ca-Al)" Type="Bool" Value="0"/>
+		<Entry Name="Garnet 2 (Andradite_Ca-Fe)" Type="Bool" Value="0"/>
+		<Entry Name="Epidote 1" Type="Bool" Value="0"/>
+		<Entry Name="Epidote 2 (Allanite-(Ce))" Type="Bool" Value="0"/>
+		<Entry Name="Sn-Epidote 1 (1% SnO2)" Type="Bool" Value="0"/>
+		<Entry Name="Sn-Epidote 2 (2% SnO2)" Type="Bool" Value="0"/>
+		<Entry Name="Sn-Epidote 3 (3% SnO2)" Type="Bool" Value="0"/>
+		<Entry Name="Sn-Epidote 4 (5% SnO2)" Type="Bool" Value="0"/>
+		<Entry Name="Amphibole 1 (Actinolite_Ca-Mg-Fe )" Type="Bool" Value="0"/>
+		<Entry Name="Amphibole 2 (Hastingsite_Na-Ca-Fe-Mg)" Type="Bool" Value="0"/>
+		<Entry Name="Amphibole Mix 1 (Hst70-FeO30)" Type="Bool" Value="0"/>
+		<Entry Name="Amphibole Mix 2 (Hst70-Qtz30)" Type="Bool" Value="0"/>
+		<Entry Name="Pyroxene 1 (Hedenbergite_Ca-Fe)" Type="Bool" Value="0"/>
+		<Entry Name="Pyroxene 2 (Diopside_Ca-Mg)" Type="Bool" Value="0"/>
+		<Entry Name="Mn-Silicate" Type="Bool" Value="0"/>
+		<Entry Name="Zircon" Type="Bool" Value="0"/>
+		<Entry Name="Titanite 1 (lo Al)" Type="Bool" Value="0"/>
+		<Entry Name="Titanite 2 (Ttn70-Qtz30)" Type="Bool" Value="0"/>
+		<Entry Name="Sn-Titanite 1 (1% SnO2)" Type="Bool" Value="0"/>
+		<Entry Name="Sn-Titanite 2 (2% SnO2)" Type="Bool" Value="0"/>
+		<Entry Name="Sn-Titanite 3 (3% SnO2)" Type="Bool" Value="0"/>
+		<Entry Name="Sn-Titanite 4 (5% SnO2)" Type="Bool" Value="0"/>
+		<Entry Name="Sn-Titanite 5 (10% SnO2)" Type="Bool" Value="0"/>
+		<Entry Name="Sn-Titanite 6 (15% SnO2)" Type="Bool" Value="0"/>
+		<Entry Name="Stokesite 1" Type="Bool" Value="0"/>
+		<Entry Name="Stokesite 2 (lo Fe-Mn)" Type="Bool" Value="0"/></Group>
+	<Group Name="Phyllosilicates">
+		<Group Name="Group Colour">
+			<Entry Name="red" Type="Long" Value="164"/>
+			<Entry Name="green" Type="Long" Value="190"/>
+			<Entry Name="blue" Type="Long" Value="132"/></Group>
+		<Entry Name="Chlorite 1 (Clinochlore_Mg-Fe)" Type="Bool" Value="0"/>
+		<Entry Name="Chlorite 2 (Chamosite_Fe-Mg)" Type="Bool" Value="0"/>
+		<Entry Name="Chlorite 3 (Chamosite_hi Fe_Mg)" Type="Bool" Value="0"/>
+		<Entry Name="Chlorite Mix 1 (Chm70-Cas30)" Type="Bool" Value="0"/>
+		<Entry Name="Chlorite Mix 2 (Chm70-Qtz30)" Type="Bool" Value="0"/>
+		<Entry Name="Mica 1 (Biotite)" Type="Bool" Value="0"/>
+		<Entry Name="Mica 2 (Muscovite 1)" Type="Bool" Value="0"/>
+		<Entry Name="Mica 3 (Muscovite 2_Mg)" Type="Bool" Value="0"/></Group>
+	<Group Name="Cassiterite">
+		<Group Name="Group Colour">
+			<Entry Name="red" Type="Long" Value="0"/>
+			<Entry Name="green" Type="Long" Value="128"/>
+			<Entry Name="blue" Type="Long" Value="255"/></Group>
+		<Entry Name="Cassiterite" Type="Bool" Value="0"/>
+		<Entry Name="Cassiterite Mix 1 (Cas70-FeO30)" Type="Bool" Value="0"/>
+		<Entry Name="Cassiterite Mix 3 (Cas70-Chm30)" Type="Bool" Value="0"/>
+		<Entry Name="Cassiterite Mix 4 (Cas70-Qtz30)" Type="Bool" Value="0"/></Group>
+	<Group Name="Iron Oxides">
+		<Group Name="Group Colour">
+			<Entry Name="red" Type="Long" Value="195"/>
+			<Entry Name="green" Type="Long" Value="120"/>
+			<Entry Name="blue" Type="Long" Value="100"/></Group>
+		<Entry Name="Iron Oxide" Type="Bool" Value="0"/>
+		<Entry Name="Iron Oxide Mix 1 (FeO70-Qtz30)" Type="Bool" Value="0"/>
+		<Entry Name="Iron Oxide Mix 2 (FeO70-Cal30)" Type="Bool" Value="0"/>
+		<Entry Name="Iron Oxide Mix 4 (FeO70-Cas30)" Type="Bool" Value="0"/>
+		<Entry Name="Iron Oxide Mix 5 (FeO70-Hst30)" Type="Bool" Value="0"/>
+		<Entry Name="Sn-Iron Oxide 1 (1%SnO2)" Type="Bool" Value="0"/>
+		<Entry Name="Sn-Iron Oxide 2 (2%SnO2)" Type="Bool" Value="0"/>
+		<Entry Name="Sn-Iron Oxide 3 (3%SnO2)" Type="Bool" Value="0"/>
+		<Entry Name="Sn-Iron Oxide 4 (5%SnO2)" Type="Bool" Value="0"/></Group>
+	<Group Name="other Sulfides">
+		<Group Name="Group Colour">
+			<Entry Name="red" Type="Long" Value="196"/>
+			<Entry Name="green" Type="Long" Value="195"/>
+			<Entry Name="blue" Type="Long" Value="80"/></Group>
+		<Entry Name="Roquesite" Type="Bool" Value="0"/>
+		<Entry Name="Pyrite" Type="Bool" Value="0"/>
+		<Entry Name="Pyrrhotite" Type="Bool" Value="0"/>
+		<Entry Name="Bornite" Type="Bool" Value="0"/>
+		<Entry Name="Galena" Type="Bool" Value="0"/></Group>
+	<Group Name="Carbonates">
+		<Group Name="Group Colour">
+			<Entry Name="red" Type="Long" Value="150"/>
+			<Entry Name="green" Type="Long" Value="175"/>
+			<Entry Name="blue" Type="Long" Value="225"/></Group>
+		<Entry Name="Calcite 1 (lo Mn)" Type="Bool" Value="0"/>
+		<Entry Name="Calcite 2 (lo Si-Fe)" Type="Bool" Value="0"/>
+		<Entry Name="Calcite Mix 1 (Cal70-Qtz30)" Type="Bool" Value="0"/>
+		<Entry Name="Calcite Mix 2 (Cal70-FeO30)" Type="Bool" Value="0"/>
+		<Entry Name="Ankerite" Type="Bool" Value="0"/></Group>
+	<Group Name="Fluorite">
+		<Group Name="Group Colour">
+			<Entry Name="red" Type="Long" Value="120"/>
+			<Entry Name="green" Type="Long" Value="110"/>
+			<Entry Name="blue" Type="Long" Value="192"/></Group>
+		<Entry Name="Fluorite" Type="Bool" Value="0"/></Group>
+	<Group Name="Others">
+		<Group Name="Group Colour">
+			<Entry Name="red" Type="Long" Value="154"/>
+			<Entry Name="green" Type="Long" Value="175"/>
+			<Entry Name="blue" Type="Long" Value="164"/></Group>
+		<Entry Name="Rutile" Type="Bool" Value="0"/>
+		<Entry Name="Ilmenite 1" Type="Bool" Value="0"/>
+		<Entry Name="Ilmenite 2 (hi Mn)" Type="Bool" Value="0"/>
+		<Entry Name="Zincite (lo  S-Fe)" Type="Bool" Value="0"/>
+		<Entry Name="Spinel (Hercynite-Gahnite_Zn-Fe)" Type="Bool" Value="0"/>
+		<Entry Name="Hydroxylapatite" Type="Bool" Value="0"/>
+		<Entry Name="Anhydrite/Gypsum" Type="Bool" Value="0"/>
+		<Entry Name="Scheelite" Type="Bool" Value="0"/>
+		<Entry Name="Native Arsenic" Type="Bool" Value="0"/>
+		<Entry Name="Wittichenite" Type="Bool" Value="0"/>
+		<Entry Name="Unknown" Type="Bool" Value="0"/>
+		<Entry Name="No_XRay" Type="Bool" Value="0"/>
+		<Entry Name="Low_Counts" Type="Bool" Value="0"/></Group>
+	<Group Name="Chalcopyrite">
+		<Group Name="Group Colour">
+			<Entry Name="red" Type="Long" Value="175"/>
+			<Entry Name="green" Type="Long" Value="92"/>
+			<Entry Name="blue" Type="Long" Value="114"/></Group>
+		<Entry Name="Chalcopyrite" Type="Bool" Value="0"/></Group>
+	<Group Name="Sphalerite">
+		<Group Name="Group Colour">
+			<Entry Name="red" Type="Long" Value="201"/>
+			<Entry Name="green" Type="Long" Value="198"/>
+			<Entry Name="blue" Type="Long" Value="66"/></Group>
+		<Entry Name="In-Sphalerite 1 (lo In)" Type="Bool" Value="0"/>
+		<Entry Name="In-Sphalerite 2 (hi In)" Type="Bool" Value="0"/>
+		<Entry Name="Sphalerite" Type="Bool" Value="0"/></Group>
+	<Group Name="Arsenopyrite">
+		<Group Name="Group Colour">
+			<Entry Name="red" Type="Long" Value="201"/>
+			<Entry Name="green" Type="Long" Value="198"/>
+			<Entry Name="blue" Type="Long" Value="66"/></Group>
+		<Entry Name="Arsenopyrite (lo Ni-Co)" Type="Bool" Value="0"/></Group>
+	<Group Name="Tourmaline (Schorl-Dravite_Na-Mg)">
+		<Group Name="Group Colour">
+			<Entry Name="red" Type="Long" Value="169"/>
+			<Entry Name="green" Type="Long" Value="169"/>
+			<Entry Name="blue" Type="Long" Value="169"/></Group>
+		<Entry Name="Tourmaline (Schorl-Dravite_Na-Mg)" Type="Bool" Value="0"/></Group>
+	<Entry Name="name" Type="String" Value="grouping_markus_refined"/></Config>

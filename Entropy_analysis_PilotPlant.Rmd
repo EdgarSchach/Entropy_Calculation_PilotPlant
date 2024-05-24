@@ -1,0 +1,488 @@
+---
+title: "Entropy Analysis for MLA data"
+author: "Edgar Schach, Raimon Tolosana Delgado"
+date: "2024-05-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Load Packages for the calculations
+
+```{r Load Packages}
+library(tidyverse)
+library(RColorBrewer)
+library(compositions)
+library(future)
+library(furrr)
+library(parallel)
+library(parallelly)
+library(future.apply)
+library(microbenchmark)
+library(foreach)
+library(doFuture)
+library(tidyverse)
+library(broom)
+library(readxl)
+
+source(file = "./functions_paper2.R")
+source("./mlaXMLSession.R")
+source("./Entropy_Functions-toSubmit.R")
+
+
+```
+## Setting Colors and Factor Levels for Plots
+
+For plots in ggplot, color values can set once, to have consistent colors throughout the graphs. Further, factors and their levels are used to 
+change the order of facets,legends ect. in ggplot. Once defined they can be recycled as well. 
+
+```{r}
+cols_component.dist <- brewer.pal(n = 5, name = "Blues")[2:5]
+names(cols_component.dist) <- c("c0j0","cij0","c0jk","cijk")
+
+cols_particle.dist <- brewer.pal(n = 4, name = "Greens")
+names(cols_particle.dist) <- c("p00k","p0jk","pi0k","pijk")
+
+cols_partition.vec <- brewer.pal(n = 4, name = "Reds")
+names(cols_partition.vec) <- c("ti00","ti0k","tij0","tijk")
+
+entropy_colors <- c(cols_component.dist,
+                    cols_particle.dist,
+                    cols_partition.vec)
+
+type.levels <- c("ti00","ti0k","tij0","tijk", # partitions
+                 "p00k","p0jk","pi0k","pijk" ,# distributions
+                 "c0j0","cij0","c0jk","cijk") # compositions
+
+sample_lvl <- c("Feed","Recal Feed","Magnetic","Non-magnetic","Product","Coarse","Fine")
+machine_lvl <- c("Sieve","Magnetic separator","Mill")
+machine.nms <- c("sieve"="Sieve","spiral_separator"="Spiral Separator","mill1"="Mill1","magnetic_separator"="Magnetic Separator","sulphide_flotation"="Sulphide-Flotation","screw_classifier"="Screw-Classifier","hydrocyclone"="Hydro-Cyclone","shaking_table"="Shaking-Table","mill2"="Mill2")
+machine.lvl.extended <- machine.nms
+names(machine.lvl.extended) <-  NULL
+
+```
+
+
+## Data Preparation
+
+For the calculation of the entropies for each sample point, an excel sheet provides the information for each machine, including which sample points belong to the feed stage and which points in the pilot plant belong to the product stage.Further, the file also contains the balanced mass streams. 
+The MLA-data is saved in a R-file with the name MLA_Particles.RData. An appropriate grouping for the over 81 mineral phases detected in the MLA data is given as XML file. 
+
+```{r data preparation}
+#Loading Particle MLA Data 
+load("./MLA_Particles.RData")
+
+#Loading machine data from a csv file. 
+machines <-  read_delim("Machines.csv", delim = ";", 
+    escape_double = FALSE, locale = locale(decimal_mark = ",", 
+        grouping_mark = "."), trim_ws = TRUE)
+
+
+#Transform machines into a list format
+
+machines.transform <- function(machine){
+  feed_stage <- machine %>% filter(stage == "Feed") %>% select(sample) %>% unlist()
+  product_stage <- machine %>% filter(stage == "Product") %>% 
+    select(sample) %>% unlist()
+  weights_feed <- machine %>% filter(stage == "Feed") %>% select("weights")  %>% unlist() %>% clo()
+  weights_products <- machine %>% filter(stage == "Product") %>% select("weights")  %>% unlist() %>% clo()
+  weights <- c(weights_feed,weights_products)
+  names(weights) <- machine$sample
+  res <- list(feed_stage = feed_stage,
+              product_stage = product_stage,
+              weights = weights)
+  return(res)
+}
+
+machines <- machines %>% split(f = .$machine) %>% map(machines.transform)
+
+```
+
+In a next step we apply the grouping to the MLA data and fix some issues regarding the names of the minerals and there abundance in all samples.
+Mineral Groupings can be applied by matrix multiplication of a particle matrix (rows = particles, columns = phases) with the grouping matrix (gm). For a meaningful entropy analysis for a certain separation problem it is important to apply a meaningful grouping.  
+
+```{r General mineral grouping}
+# Applying a general grouping and obtaining the particle data. 
+
+mlaSetXMLGroupsAndPalette("./Mineral_grouping.xml") # pay attention to the right path
+aux = options()$mlaGrouping
+rownames(aux$groupingMatrix)[25]  <-"Tourmaline (Schorl-Dravite_Na-Mg)"
+options(mlaGrouping = aux)
+
+gm <- aux$groupingMatrix
+gm <- as.data.frame(t(gm))
+gm[,"Mn-Silicate"] <- c(1,rep(0,times = 11))
+gm <- as.data.frame(t(gm))
+
+mineral_masses <-   lapply(SamplesMLA, function(x){
+  res <- as.data.frame(as.matrix(x$minMassComp) %*% as.matrix(gm[colnames(x$minMassComp),]))
+  return(res)
+})
+
+part_dat <- lapply(mineral_masses,function(x)select(x,-contains("Tourmaline")))
+
+of.interest <- c("Cassiterite","Sphalerite","Chalcopyrite","Arsenopyrite","Iron Oxides")
+
+group_minerals <- function(x){
+  rest <- x %>% 
+    select(-any_of(of.interest)) %>% 
+    rowSums()
+  x <- x %>%
+    select(any_of(of.interest)) %>% 
+    mutate(Rest = rest)
+  return(x)
+}
+
+part_dat_grouped <- map(part_dat,group_minerals)
+
+```
+
+
+## Particle Number Calculations
+
+The measured MLA samples do not scale with the actual mass streams of the sample points in the pilot plant. Therefore, they only resamble arbitary numbers of particles. As the entropy is dependend on the particle number in a sample, they have to be rescaled to a meaningful particle number. The distributional information given by the MLA samples can be considered concise. Therefore, the number of particles representing one gram of material can be calculated from each sample. This is done by the following steps: 
+
+- the area of a particle is transformed into a circular area by calculation of the equivalent circle diameter (ECD)
+- The particle volume is calculated from the circular area.
+- The volume weighted mean diameter for the sample is calculated
+- The volume weighted mean density for the sample is calculated. 
+- The mean volume is calculated from the mean diameter
+- The mean mass is caluclated from the mean volume and the mean density
+- The particle number is given by 1g/ mean mass
+
+```{r}
+particle_number_calculation <- function(mlaSample, th.mass = 1){
+  
+  relevants <- function(x) data.frame(ECD = sqrt(4*x$geomProps$ParticleArea/pi),
+                                      mass = x$geomProps$Mass,
+                                      dens = x$geomProps$Mass/x$geomProps$ParticleArea/100)
+  rel <- relevants(mlaSample)
+  
+  cal_mean_d <- function(x){
+    volume <- pi/6*x$ECD^3
+    mean_d <- sum(volume*x$ECD)/sum(volume)
+    mean_dens <- sum(volume*x$dens)/sum(volume)
+    mean_mass <- 1/6*pi*mean_d^3 * mean_dens * 10^(-12)
+    res <- data.frame(ecd = mean_d,
+                      dens = mean_dens,
+                      mass = mean_mass)
+    return(res)
+  }
+  
+ res_m <- cal_mean_d(rel)
+ 
+ particle_number <- th.mass/res_m[,"mass"]
+ res <- list(mean_ecd = res_m$ecd,
+             mean_dens = res_m$dens,
+             mean_mass = res_m$mass,
+             part_num = particle_number)
+ 
+ return(res)
+}
+
+mean_props <- lapply(SamplesMLA,particle_number_calculation)
+particle.numbers <- sapply(mean_props,function(x)x$part_num)
+
+
+num.res <- data.frame(Sample = names(particle.numbers),
+                 particle.numbers = particle.numbers)
+
+g <- ggplot(num.res, aes(Sample,log10(particle.numbers))) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  labs(x = "sample point", y = "log 10 particle numbers")
+print(g)
+number.differences <- 100000-particle.numbers*10
+ggsave(filename = "part.numbers.png",device = "png",width = 15, height = 10, units = "cm")
+
+```
+
+
+## Calculation of entropy values for each sample point for 100 000 particles 
+
+The entropy of a sample is dependend on the numbers of particles in a sample. Thereby it is important to observe enough particles to obtain a representative property distribution of the sample and on the other hand only take as much particles as needed into consideration to avoid running into memory issues during computation which can easily lead to very long computation times. A good compromise is given for a particle number of 100 000 particles which can be further rescaled to any desireable particle number. 
+For the calculation we first define a function that calculates the entropy aggregations of interest for one batch and rescales the particle entropy to the value $H1$.
+
+```{r function for the normalized entropy calculation for one batch}
+batch.entropy.norm <- function(part.dat){
+  # Calculating Extensive Properties for Feed Batch:
+  
+  N000 <- sum(part.dat)
+  N0j0 <- colSums(part.dat)
+  N00k <- rowSums(part.dat)
+  N0jk <- part.dat
+  
+  #Calculating Extensive Properties for Product Batch(es)
+  
+  #Intensive Größen für Feed:   
+  
+  c0j0 <- colSums(part.dat)/sum(part.dat) # composition of batchstage
+  c0jk <- N0jk/N00k # integrowth of batchstage
+  p00k <- N00k/N000 # mass distribution in batchstage
+  p0jk <- sweep(N0jk,2,N0j0,"/") #component distribution in batchstage
+  
+  #Entropy Calculation for Feed####
+  #c0j0.p0jk
+  
+  ent_c0j0 <- .entropy(c0j0) #- log(length(c0j0))
+  ent_p0jk <- apply(p0jk,2,.entropy)
+  ent_p0jk <- ent_p0jk - log(length(p00k))
+  ent_p0jk <- c0j0 %*% ent_p0jk
+  
+  #p00k.cojk
+  
+  ent_p00k <- .entropy(p00k)
+  ent_p00k <- ent_p00k - log(length(p00k))
+  ent_c0jk <- apply(c0jk,1,.entropy)# - log(length(c0j0))
+  ent_c0jk <- p00k %*% ent_c0jk
+  
+  c0j0.p0jk <- c(c0j0 = ent_c0j0, p0jk = ent_p0jk)
+  p00k.c0jk <- c(p00k = ent_p00k, c0jk = ent_c0jk)
+  
+  res_batch <- list(c0j0.p0jk = c0j0.p0jk,
+                    p00k.c0jk = p00k.c0jk)
+  
+  res_batch <- bind_rows(res_batch,.id = "aggregation") %>% 
+    gather(key = "entropy_type",value = "entropy",-aggregation) %>% na.omit()
+  
+  return(res_batch)
+}
+```
+
+For the estimation of errors, we use 20 fold bootstrap resampling for each sample point. To speed up the calculation, we can compute the results for the different bootstraps on multiple cores (parallel). Therefore we need to enbed the entropy function in a respective framework: 
+This function draws the particle bootstraps from the original population and calculates the entropy using the function above. 
+
+```{r}
+batch_entropy.parallel <- function(MLA.sample,part.numbers){
+  idx <- sample(1:nrow(MLA.sample),size = part.numbers,replace = T)
+  pd <- MLA.sample[idx,]
+  entropy = batch.entropy.norm(pd)
+  return(entropy)
+}
+```
+
+```{r}
+availableCores()
+plan(multisession,workers = availableCores() -1)
+
+#entropies ungrouped ####
+Entropies_ungrouped <-  map(part_dat, ~future_replicate(20,batch_entropy.parallel(MLA.sample = .x,part.numbers = 100000),future.seed = T,simplify = F))
+Entropies.agg_ungrouped <- map(Entropies_ungrouped,~bind_rows(.x,.id = "N"))
+Entropies.agg_ungrouped <- bind_rows(Entropies.agg_ungrouped,.id = "Sample")
+Entropies.agg_ungrouped <- Entropies.agg_ungrouped %>%
+  group_by(Sample,entropy_type,aggregation) %>%
+  summarise(mean_entropy = mean(entropy), sd_entropy = sd(entropy))
+save(Entropies.agg_ungrouped,file = "Entropies_ungrouped.RData")
+Entropies_grouped <-  map(part_dat_grouped, ~future_replicate(20,batch_entropy.parallel(MLA.sample = .x,part.numbers = 100000),future.seed = T,simplify = F))
+Entropies.agg_grouped <- map(Entropies_grouped,~bind_rows(.x,.id = "N"))
+Entropies.agg_grouped <- bind_rows(Entropies.agg_grouped,.id = "Sample")
+Entropies.agg_grouped <- Entropies.agg_grouped %>%
+  group_by(Sample,entropy_type,aggregation) %>%
+  summarise(mean_entropy = mean(entropy), sd_entropy = sd(entropy))
+save(Entropies.agg_grouped,file = "Entropies_grouped.RData")
+
+load("Entropies_ungrouped.RData")
+load("Entropies_grouped.RData")
+
+```
+
+
+
+
+## Rescaling of the Entropy: 
+
+The entropies above are rescaled to the number of particles calculated in one gram of material with the relation $H_N = H_1 + log(N)$
+
+```{r}
+Part.Entropies <- Entropies.agg_ungrouped %>% filter(entropy_type %in% c("p00k","p0jk")) %>% 
+  right_join(num.res,by = "Sample") %>% 
+  mutate(mean_entropy = mean_entropy + log(particle.numbers)) %>% 
+  select(-particle.numbers)
+
+Chem.Entropies <- Entropies.agg_ungrouped %>% filter(!(entropy_type %in% c("p00k","p0jk")))
+
+Entropies.agg_ungrouped_1g <- bind_rows(Part.Entropies,Chem.Entropies) %>% arrange(Sample) %>% 
+  rename( type = entropy_type)
+
+g <- ggplot(Entropies.agg_ungrouped_1g,aes(x = Sample,y = mean_entropy, fill = type)) +
+  geom_bar(stat = "identity") +
+  facet_grid(.~aggregation) +
+  theme_classic() +
+  labs(x = "Sample Point", y = "entropy_value") +
+  scale_fill_manual(values = entropy_colors)
+print(g)
+
+ggsave(filename = "entropy.batches.normalized.png",device = "png",width = 30, height = 20, units = "cm")
+
+Part.Entropies <- Entropies.agg_grouped %>% filter(entropy_type %in% c("p00k","p0jk")) %>% 
+  right_join(num.res,by = "Sample") %>% 
+  mutate(mean_entropy = mean_entropy + log(particle.numbers)) %>% 
+  select(-particle.numbers)
+
+Chem.Entropies <- Entropies.agg_grouped %>% filter(!(entropy_type %in% c("p00k","p0jk")))
+
+Entropies.agg_grouped_1g <- bind_rows(Part.Entropies,Chem.Entropies) %>% arrange(Sample) %>% 
+  rename( type = entropy_type)
+
+g <- ggplot(Entropies.agg_grouped_1g,aes(x = Sample,y = mean_entropy, fill = type)) +
+  geom_bar(stat = "identity") +
+  facet_grid(.~aggregation) +
+  theme_classic() +
+  labs(x = "Sample Point", y = "entropy_value") +
+  scale_fill_manual(values = entropy_colors)
+print(g)
+
+ggsave(filename = "entropy.batches.normalized_grouped.png",device = "png",width = 30, height = 20, units = "cm")
+
+```
+## Calculation of entropies for each machine in the pilot plant: 
+
+```{r}
+machine <- machines$`Screw Class.`
+part.dat <- part_dat
+
+machine.entropy <- function(machine,part.dat) {
+
+samples_ps <- part_dat[machine$product_stage]
+
+if(length(machine$product_stage)>1){
+  
+  
+Nij0 <- map(samples_ps,colSums) 
+
+
+m000 <- sapply(samples_ps,sum) %*% clo(machine$weights[machine$product_stage])
+m0j0 <- sapply(samples_ps,colSums) %*% clo(machine$weights[machine$product_stage])
+
+
+wi <- clo(machine$weights[machine$product_stage])/(sapply(samples_ps,sum)/m000)
+
+cij0 <- map(Nij0,~.x/m000)
+
+
+cijk <- map(samples_ps,~sweep(.x,1,rowSums(.x),"/"))
+
+
+Pi0k <- sapply(samples_ps,rowSums)
+pi0k <- map(Pi0k,~.x/m000)
+#pijk <- map(samples_ps,~sweep(.x,2,m0j0,"/"))
+pijk <- map2(samples_ps,Nij0,~sweep(.x,2,.y,"/"))
+
+ent_cij0 <- sapply(cij0,.entropy)
+ent_cij0 <- ent_cij0 %*% wi
+
+ent_cijk <- map(cijk,~apply(.x,1,.entropy))
+ent_cijk <- map2(pi0k,ent_cijk,~.x%*%.y)
+ent_cijk <- wi %*% unlist(ent_cijk)
+
+ent_pi0k <- sapply(pi0k,.entropy)
+ent_pi0k <- wi %*% ent_pi0k
+
+ent_pijk <- map(pijk,~apply(.x,2,.entropy))
+ent_pijk <- map2(ent_pijk,cij0,~.x%*%.y)
+ent_pijk <- wi %*% unlist(ent_pijk)
+
+ent_RF_cij0.pijk <- data.frame(c0j0 = ent_cij0,
+                               p0jk = ent_pijk)
+ent_RF_pi0k.cijk <- data.frame(p00k = ent_pi0k,
+                               c0jk = ent_cijk)
+
+ent_RF <- list(pi0k.cijk = ent_RF_pi0k.cijk,
+               cij0.pijk = ent_RF_cij0.pijk)
+ent_RF <- map(ent_RF,~gather(.x,key = "entropy_type",value = "entropy")) %>% bind_rows(.id = "aggregation")
+
+#### Calculation of Product Stage from original MLA samples: 
+
+ent_P <- map(samples_ps,batch.entropy.cal)
+ent_P <- bind_rows(ent_P,.id = "Sample")
+weights <- tibble(Sample = machine$product_stage,
+                  weights = clo(machine$weights[machine$product_stage]))
+ent_P <- right_join(ent_P,weights,by = "Sample")
+ent_P <- ent_P %>% mutate(weighted_entropy = entropy*weights) %>%  group_by(aggregation,entropy_type) %>%
+  summarise(entropy = sum(weighted_entropy))
+
+ti00 <- sapply(samples_ps,sum)/m000
+Ti00 <- clo(machine$weights[machine$product_stage])
+ent_ti00 <- map2(Ti00,ti00,~-.x*log(.y)) %>% unlist() %>% sum()
+
+ent_P <- ent_P %>% ungroup() %>%
+  add_row( entropy_type = "ti00", aggregation = "c0j0.p0jk", entropy = ent_ti00) %>%
+  add_row( entropy_type = "ti00", aggregation = "p00k.c0jk", entropy = ent_ti00)
+ent_P$entropy_type <- str_replace_all(ent_P$entropy_type,c("c0j0"="cij0","c0jk"="cijk","p00k"="pi0k","p0jk"="pijk"))
+ent_P$aggregation <-  str_replace_all(ent_P$aggregation,c("c0j0"="ti00.cij0","c0jk"="cijk","p00k"="ti00.pi0k","p0jk"="pijk"))
+
+ent <- list(ent_P = ent_P,
+            ent_RF = ent_RF)
+
+ent <- bind_rows(ent,.id = "Stage")
+}else{
+ 
+}
+
+
+
+return(ent)
+  
+}
+
+#### Calculation of recalculated Feed from original MLA sample ####
+
+
+
+
+g <- ggplot(ent,aes(aggregation,entropy,fill = entropy_type)) +
+  geom_bar(stat = "identity") +
+   scale_fill_manual(values = entropy_colors)
+print(g)
+```
+
+
+```{r}
+machine <- machines$Mill2
+particle.numbers
+total.number <-  10000
+replicates <- 20
+machine.entropy <- function(machine,particle.numbers,total.number,replicates){
+pl <- length(machine$product_stage)
+p_n <- total.number
+
+if(pl > 1){
+  phi_products = clo(particle.numbers[machine$product_stage]*machine$weights[machine$product_stage])
+  phi_feed <- clo(particle.numbers[machine$feed_stage]*machine$weights[machine$feed_stage])
+  phi <- c(phi_feed,phi_products)
+}else{
+  phi = clo(particle.numbers[c(machine$feed_stage,machine$product_stage)]*machine$weights)
+}
+
+p_num <- phi*p_n
+
+samples <- part_dat_grouped[c(machine$feed_stage,machine$product_stage)]
+numbers <- p_num
+
+parallel.calculation <- function(samples,numbers){
+idx <- map2(samples,numbers,~sample(c(1:nrow(.x)),size = .y,replace = T))
+boots <- map2(samples,idx,~.x[.y,])
+boots_f <- boots[machine$feed_stage]
+boots_p <- boots[machine$product_stage]
+boots_f_recal <- bind_rows(boots_p)
+if(pl > 1){
+entropy <- entropyforboots.particles(boots_f_recal,boots_p,weights = machine$weights[machine$weights])
+}else{
+entropy <- entropyforboots.particles(boots_f,boots_p,weights = machine$weights[machine$weights])
+}
+entropy <- entropy %>% filter(!(str_detect(entropy_type,".norm")))
+return(entropy)
+}
+availableCores()
+plan(multisession,workers = availableCores() -1)
+
+entropies <-  future_replicate(replicates,parallel.calculation(samples = products,numbers = p_num),future.seed = T,simplify = F)
+entropies_agg <- entropies %>% bind_rows(.id = "N") %>% group_by(stage,aggregation,entropy_type) %>% 
+  summarise(mean_entropy = mean(entropy),sd_entropy = sd(entropy))
+}
+test_1 <- machine.entropy(machines$Hydrocyclone,particle.numbers = particle.numbers,total.number = 10000,replicates = 20)
+
+entropies_agg %>% group_by(stage,aggregation) %>% summarise(entropy = sum(mean_entropy))
+```
+
