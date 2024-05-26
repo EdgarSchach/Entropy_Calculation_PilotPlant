@@ -1,4 +1,12 @@
-batch.entropy.norm <- function(part.dat){
+sample_point <- "S01"
+part.dat <- part_dat_grouped$S01
+batch.entropy.norm <- function(part.dat,sample_point){
+
+  # get particle data from name
+  con <- grouped_concentrations[sample_point,]/100
+  
+  con_weighting <- 1/(1-con$Rest)
+  con <- select(con,-Rest)
   # Calculating Extensive Properties for Feed Batch:
   
   N000 <- sum(part.dat)
@@ -10,7 +18,10 @@ batch.entropy.norm <- function(part.dat){
   
   #Intensive Größen für Feed:   
   
-  c0j0 <- colSums(part.dat)/sum(part.dat) # composition of batchstage
+  #c0j0 <- colSums(part.dat)/sum(part.dat) # composition of batchstage
+  c0j0 <- unlist(con)
+  
+  
   c0jk <- N0jk/N00k # integrowth of batchstage
   p00k <- N00k/N000 # mass distribution in batchstage
   p0jk <- sweep(N0jk,2,N0j0,"/") #component distribution in batchstage
@@ -18,9 +29,10 @@ batch.entropy.norm <- function(part.dat){
   #Entropy Calculation for Feed####
   #c0j0.p0jk
   
-  ent_c0j0 <- .entropy(c0j0) #- log(length(c0j0))
+  ent_c0j0 <- .entropy(c0j0)*con_weighting #- log(length(c0j0))
   ent_p0jk <- apply(p0jk,2,.entropy)
   ent_p0jk <- ent_p0jk - log(length(p00k))
+  ent_p0jk <- ent_p0jk[names(ent_p0jk) %in% of.interest]  
   ent_p0jk <- c0j0 %*% ent_p0jk
   
   #p00k.cojk
@@ -42,6 +54,25 @@ batch.entropy.norm <- function(part.dat){
   
   return(res_batch)
 }
+particle_data <- part_dat_grouped
+Sample <- names(part_dat)[1]
+sample_points <- names(part_dat)
+sample_point <- sample_points[1]
+names(sample_points) <- names(part_dat)
+part.numbers <- 1000
+
+
+
+batch_entropy.parallel <- function(sample_point,part.numbers,particle_data){
+  pd <- particle_data[[sample_point]]
+  idx <- sample(1:nrow(pd),size = part.numbers,replace = T)
+  pd <- pd[idx,]
+  entropy = batch.entropy.norm(pd,sample_point = sample_point)
+  return(entropy)
+}
+
+test <- map(sample_points,~batch_entropy.parallel(sample_point = .x,part.numbers = 10000,particle_data = part_dat))
+
 
 entropyforboots.particles <- function(feed,products,weights){
   pl <- length(products)
@@ -92,8 +123,8 @@ entropyforboots.particles <- function(feed,products,weights){
   ti00.cij0.pijk <- c(ti00=  0, cij0 = ent_c0j0, pijk = ent_p0jk, p0jk.norm = ent_p0jk.norm)
   ti00.pi0k.cijk <- c(ti00 = 0, pi0k = ent_p00k, cijk = ent_c0jk, p00k.norm = ent_p00k.norm)
   
-  res_feedstage <- list(c0j0.p0jk = c0j0.p0jk,
-                        p00k.c0jk = p00k.c0jk)
+  res_feedstage <- list(ti00.cij0.pijk = ti00.cij0.pijk,
+                        ti00.pi0k.cijk = ti00.pi0k.cijk)
   res_feedstage <- bind_rows(res_feedstage,.id = "aggregation") %>% 
     gather(key = "entropy_type",value = "entropy",-aggregation) %>% na.omit()
   

@@ -120,15 +120,33 @@ gm <- aux$groupingMatrix
 gm <- as.data.frame(t(gm))
 gm[,"Mn-Silicate"] <- c(1,rep(0,times = 11))
 gm <- as.data.frame(t(gm))
+write.csv(gm,file = "grouping_matrix.csv")
+gm <- read.delim("./grouping_matrix_MLA.CSV",)
+gm <- read_delim("grouping_matrix_MLA.CSV", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+gm <- data.frame(gm)
+rownames(gm) <- gm$Column1
+gm <- gm %>% select(-Column1)
+
+concentrations <- read_delim("mass_flows_and_concentrations.CSV", 
+    delim = ";", escape_double = FALSE, locale = locale(decimal_mark = ",", 
+        grouping_mark = "."), trim_ws = TRUE) 
+nms_concentrations <- concentrations$Stream
+concentrations <- concentrations %>% select(-c(Stream,`Mass
+flowrate`)) %>% as.data.frame()
+row.names(concentrations) <-  nms_concentrations
+
+
 
 mineral_masses <-   lapply(SamplesMLA, function(x){
   res <- as.data.frame(as.matrix(x$minMassComp) %*% as.matrix(gm[colnames(x$minMassComp),]))
+  colnames(res) <- colnames(concentrations)
   return(res)
 })
 
 part_dat <- lapply(mineral_masses,function(x)select(x,-contains("Tourmaline")))
 
-of.interest <- c("Cassiterite","Sphalerite","Chalcopyrite","Arsenopyrite","Iron Oxides")
+of.interest <- c("Cassiterite","Iron Oxide","Cu Sulphides","Arsenopyrite","Sphalerite")
 
 group_minerals <- function(x){
   rest <- x %>% 
@@ -141,7 +159,7 @@ group_minerals <- function(x){
 }
 
 part_dat_grouped <- map(part_dat,group_minerals)
-
+grouped_concentrations <- group_minerals(concentrations)
 ```
 
 
@@ -158,7 +176,7 @@ The measured MLA samples do not scale with the actual mass streams of the sample
 - The particle number is given by 1g/ mean mass
 
 ```{r}
-particle_number_calculation <- function(mlaSample, th.mass = 0.001){
+particle_number_calculation <- function(mlaSample, th.mass = 1){
   
   relevants <- function(x) data.frame(ECD = sqrt(4*x$geomProps$ParticleArea/pi),
                                       mass = x$geomProps$Mass,
@@ -264,29 +282,42 @@ batch_entropy.parallel <- function(MLA.sample,part.numbers){
   idx <- sample(1:nrow(MLA.sample),size = part.numbers,replace = T)
   pd <- MLA.sample[idx,]
   entropy = batch.entropy.norm(pd)
+#  return(entropy)
+}
+
+batch_entropy.parallel <- function(Sample,part.numbers){
+  pd <- MLA.sample[[1]]
+  idx <- sample(1:nrow(pd),size = part.numbers,replace = T)
+
+  pd <- pd[idx,]
+  nm <- names(MLA.sample)
+  entropy = batch.entropy.norm(pd,sample_point = nm)
   return(entropy)
 }
+
+batch_entropy.parallel(part_dat["S01"],part.numbers = 10000)
 ```
 
 ```{r}
-# availableCores()
-# plan(multisession,workers = availableCores() -1)
+ availableCores()
+ plan(multisession,workers = availableCores() -1)
 # 
 # #entropies ungrouped ####
-# Entropies_ungrouped <-  map(part_dat, ~future_replicate(20,batch_entropy.parallel(MLA.sample = .x,part.numbers = 100000),future.seed = T,simplify = F))
-# Entropies.agg_ungrouped <- map(Entropies_ungrouped,~bind_rows(.x,.id = "N"))
-# Entropies.agg_ungrouped <- bind_rows(Entropies.agg_ungrouped,.id = "Sample")
-# Entropies.agg_ungrouped <- Entropies.agg_ungrouped %>%
-#   group_by(Sample,entropy_type,aggregation) %>%
-#   summarise(mean_entropy = mean(entropy), sd_entropy = sd(entropy))
+
+Entropies_ungrouped <-  map(sample_points, ~future_replicate(5,batch_entropy.parallel(sample_point = .x,part.numbers = 10000,particle_data = part_dat),future.seed = T,simplify = F))
+Entropies.agg_ungrouped <- Entropies_ungrouped %>% map(~bind_rows(.x,.id = "N")) %>% bind_rows(.id = "Sample")
+
+Entropies.agg_ungrouped <- Entropies.agg_ungrouped %>%
+  group_by(Sample,entropy_type,aggregation) %>%
+  summarise(mean_entropy = mean(entropy), sd_entropy = sd(entropy))
 # save(Entropies.agg_ungrouped,file = "Entropies_ungrouped.RData")
-# Entropies_grouped <-  map(part_dat_grouped, ~future_replicate(20,batch_entropy.parallel(MLA.sample = .x,part.numbers = 100000),future.seed = T,simplify = F))
-# Entropies.agg_grouped <- map(Entropies_grouped,~bind_rows(.x,.id = "N"))
-# Entropies.agg_grouped <- bind_rows(Entropies.agg_grouped,.id = "Sample")
-# Entropies.agg_grouped <- Entropies.agg_grouped %>%
-#   group_by(Sample,entropy_type,aggregation) %>%
-#   summarise(mean_entropy = mean(entropy), sd_entropy = sd(entropy))
-# save(Entropies.agg_grouped,file = "Entropies_grouped.RData")
+Entropies_grouped <-  map(sample_points, ~future_replicate(20,batch_entropy.parallel(sample_point = .x,part.numbers = 100000,particle_data = part_dat_grouped),future.seed = T,simplify = F))
+Entropies.agg_grouped <- map(Entropies_grouped,~bind_rows(.x,.id = "N"))
+Entropies.agg_grouped <- bind_rows(Entropies.agg_grouped,.id = "Sample")
+Entropies.agg_grouped <- Entropies.agg_grouped %>%
+  group_by(Sample,entropy_type,aggregation) %>%
+  summarise(mean_entropy = mean(entropy), sd_entropy = sd(entropy))
+save(Entropies.agg_grouped,file = "Entropies_grouped_conccorr.RData")
 
 load("Entropies_ungrouped.RData")
 load("Entropies_grouped.RData")
@@ -488,7 +519,7 @@ ggarrange(plotlist = plots,ncol = 2,nrow = 5,
          legend.grob = get_legend(plots),
           widths = c(1,1,1))
 
-ggsave(filename = "batch.entropies.png",device = "png",width = 20, height = 50, units = "cm")
+ggsave(filename = "batch.entropies_conccorr.png",device = "png",width = 20, height = 50, units = "cm")
 ```
 ## Calculation of entropies for each machine in the pilot plant: 
 

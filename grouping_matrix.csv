@@ -1,0 +1,89 @@
+"","Silicates","Phyllosilicates","Cassiterite","Iron Oxides","other Sulfides","Carbonates","Fluorite","Others","Chalcopyrite","Sphalerite","Arsenopyrite","Tourmaline (Schorl-Dravite_Na-Mg)"
+"Quartz",1,0,0,0,0,0,0,0,0,0,0,0
+"Quartz Mix 1 (Qtz70-FeO30)",1,0,0,0,0,0,0,0,0,0,0,0
+"Quartz Mix 2 (Qtz70-Cal30)",1,0,0,0,0,0,0,0,0,0,0,0
+"Quartz Mix 6 (Qtz70-Ttn30)",1,0,0,0,0,0,0,0,0,0,0,0
+"Quartz Mix 7 (Qtz70-Cas30)",1,0,0,0,0,0,0,0,0,0,0,0
+"Quartz Mix 8 (Qtz70-Chm30)",1,0,0,0,0,0,0,0,0,0,0,0
+"Quartz Mix 9 (Qtz70-Hst30)",1,0,0,0,0,0,0,0,0,0,0,0
+"Feldspar 1 (K-Spar)",1,0,0,0,0,0,0,0,0,0,0,0
+"Feldspar 2 (Albite)",1,0,0,0,0,0,0,0,0,0,0,0
+"Feldspar 3 (Oligoclase)",1,0,0,0,0,0,0,0,0,0,0,0
+"Garnet 1 (Grossular_Ca-Al)",1,0,0,0,0,0,0,0,0,0,0,0
+"Garnet 2 (Andradite_Ca-Fe)",1,0,0,0,0,0,0,0,0,0,0,0
+"Epidote 1",1,0,0,0,0,0,0,0,0,0,0,0
+"Epidote 2 (Allanite-(Ce))",1,0,0,0,0,0,0,0,0,0,0,0
+"Sn-Epidote 1 (1% SnO2)",1,0,0,0,0,0,0,0,0,0,0,0
+"Sn-Epidote 2 (2% SnO2)",1,0,0,0,0,0,0,0,0,0,0,0
+"Sn-Epidote 3 (3% SnO2)",1,0,0,0,0,0,0,0,0,0,0,0
+"Sn-Epidote 4 (5% SnO2)",1,0,0,0,0,0,0,0,0,0,0,0
+"Amphibole 1 (Actinolite_Ca-Mg-Fe )",1,0,0,0,0,0,0,0,0,0,0,0
+"Amphibole 2 (Hastingsite_Na-Ca-Fe-Mg)",1,0,0,0,0,0,0,0,0,0,0,0
+"Amphibole Mix 1 (Hst70-FeO30)",1,0,0,0,0,0,0,0,0,0,0,0
+"Amphibole Mix 2 (Hst70-Qtz30)",1,0,0,0,0,0,0,0,0,0,0,0
+"Pyroxene 1 (Hedenbergite_Ca-Fe)",1,0,0,0,0,0,0,0,0,0,0,0
+"Pyroxene 2 (Diopside_Ca-Mg)",1,0,0,0,0,0,0,0,0,0,0,0
+"Tourmaline (Schorl-Dravite_Na-Mg)",1,0,0,0,0,0,0,0,0,0,0,0
+"Zircon",1,0,0,0,0,0,0,0,0,0,0,0
+"Titanite 1 (lo Al)",1,0,0,0,0,0,0,0,0,0,0,0
+"Titanite 2 (Ttn70-Qtz30)",1,0,0,0,0,0,0,0,0,0,0,0
+"Sn-Titanite 1 (1% SnO2)",1,0,0,0,0,0,0,0,0,0,0,0
+"Sn-Titanite 2 (2% SnO2)",1,0,0,0,0,0,0,0,0,0,0,0
+"Sn-Titanite 3 (3% SnO2)",1,0,0,0,0,0,0,0,0,0,0,0
+"Sn-Titanite 4 (5% SnO2)",1,0,0,0,0,0,0,0,0,0,0,0
+"Sn-Titanite 5 (10% SnO2)",1,0,0,0,0,0,0,0,0,0,0,0
+"Sn-Titanite 6 (15% SnO2)",1,0,0,0,0,0,0,0,0,0,0,0
+"Stokesite 1",1,0,0,0,0,0,0,0,0,0,0,0
+"Stokesite 2 (lo Fe-Mn)",1,0,0,0,0,0,0,0,0,0,0,0
+"Chlorite 1 (Clinochlore_Mg-Fe)",0,1,0,0,0,0,0,0,0,0,0,0
+"Chlorite 2 (Chamosite_Fe-Mg)",0,1,0,0,0,0,0,0,0,0,0,0
+"Chlorite 3 (Chamosite_hi Fe_Mg)",0,1,0,0,0,0,0,0,0,0,0,0
+"Chlorite Mix 1 (Chm70-Cas30)",0,1,0,0,0,0,0,0,0,0,0,0
+"Chlorite Mix 2 (Chm70-Qtz30)",0,1,0,0,0,0,0,0,0,0,0,0
+"Mica 1 (Biotite)",0,1,0,0,0,0,0,0,0,0,0,0
+"Mica 2 (Muscovite 1)",0,1,0,0,0,0,0,0,0,0,0,0
+"Mica 3 (Muscovite 2_Mg)",0,1,0,0,0,0,0,0,0,0,0,0
+"Cassiterite",0,0,1,0,0,0,0,0,0,0,0,0
+"Cassiterite Mix 1 (Cas70-FeO30)",0,0,1,0,0,0,0,0,0,0,0,0
+"Cassiterite Mix 3 (Cas70-Chm30)",0,0,1,0,0,0,0,0,0,0,0,0
+"Cassiterite Mix 4 (Cas70-Qtz30)",0,0,1,0,0,0,0,0,0,0,0,0
+"Iron Oxide",0,0,0,1,0,0,0,0,0,0,0,0
+"Iron Oxide Mix 1 (FeO70-Qtz30)",0,0,0,1,0,0,0,0,0,0,0,0
+"Iron Oxide Mix 2 (FeO70-Cal30)",0,0,0,1,0,0,0,0,0,0,0,0
+"Iron Oxide Mix 4 (FeO70-Cas30)",0,0,0,1,0,0,0,0,0,0,0,0
+"Iron Oxide Mix 5 (FeO70-Hst30)",0,0,0,1,0,0,0,0,0,0,0,0
+"Sn-Iron Oxide 1 (1%SnO2)",0,0,0,1,0,0,0,0,0,0,0,0
+"Sn-Iron Oxide 2 (2%SnO2)",0,0,0,1,0,0,0,0,0,0,0,0
+"Sn-Iron Oxide 3 (3%SnO2)",0,0,0,1,0,0,0,0,0,0,0,0
+"Sn-Iron Oxide 4 (5%SnO2)",0,0,0,1,0,0,0,0,0,0,0,0
+"Roquesite",0,0,0,0,1,0,0,0,0,0,0,0
+"Pyrite",0,0,0,0,1,0,0,0,0,0,0,0
+"Pyrrhotite",0,0,0,0,1,0,0,0,0,0,0,0
+"Bornite",0,0,0,0,1,0,0,0,0,0,0,0
+"Galena",0,0,0,0,1,0,0,0,0,0,0,0
+"Calcite 1 (lo Mn)",0,0,0,0,0,1,0,0,0,0,0,0
+"Calcite 2 (lo Si-Fe)",0,0,0,0,0,1,0,0,0,0,0,0
+"Calcite Mix 1 (Cal70-Qtz30)",0,0,0,0,0,1,0,0,0,0,0,0
+"Calcite Mix 2 (Cal70-FeO30)",0,0,0,0,0,1,0,0,0,0,0,0
+"Ankerite",0,0,0,0,0,1,0,0,0,0,0,0
+"Fluorite",0,0,0,0,0,0,1,0,0,0,0,0
+"Rutile",0,0,0,0,0,0,0,1,0,0,0,0
+"Ilmenite 1",0,0,0,0,0,0,0,1,0,0,0,0
+"Ilmenite 2 (hi Mn)",0,0,0,0,0,0,0,1,0,0,0,0
+"Zincite (lo  S-Fe)",0,0,0,0,0,0,0,1,0,0,0,0
+"Spinel (Hercynite-Gahnite_Zn-Fe)",0,0,0,0,0,0,0,1,0,0,0,0
+"Hydroxylapatite",0,0,0,0,0,0,0,1,0,0,0,0
+"Anhydrite/Gypsum",0,0,0,0,0,0,0,1,0,0,0,0
+"Scheelite",0,0,0,0,0,0,0,1,0,0,0,0
+"Native Arsenic",0,0,0,0,0,0,0,1,0,0,0,0
+"Wittichenite",0,0,0,0,0,0,0,1,0,0,0,0
+"Unknown",0,0,0,0,0,0,0,1,0,0,0,0
+"No_XRay",0,0,0,0,0,0,0,1,0,0,0,0
+"Low_Counts",0,0,0,0,0,0,0,1,0,0,0,0
+"Chalcopyrite",0,0,0,0,0,0,0,0,1,0,0,0
+"In-Sphalerite 1 (lo In)",0,0,0,0,0,0,0,0,0,1,0,0
+"In-Sphalerite 2 (hi In)",0,0,0,0,0,0,0,0,0,1,0,0
+"Sphalerite",0,0,0,0,0,0,0,0,0,1,0,0
+"Arsenopyrite (lo Ni-Co)",0,0,0,0,0,0,0,0,0,0,1,0
+"Tourmaline (Schorl-Dravite_Na-Mg).1",0,0,0,0,0,0,0,0,0,0,0,1
+"Mn-Silicate",1,0,0,0,0,0,0,0,0,0,0,0
