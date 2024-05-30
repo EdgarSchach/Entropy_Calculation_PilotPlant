@@ -8,7 +8,7 @@ batch.entropy.corr <- function(part.dat,sample_point,corr = T){
   N0jk <- part.dat
   
   if(corr == T){
-    con <- corrected_concentrations[sample_point,]/100
+    con <- grouped_concentrations[sample_point,]/100
     c0j0 <- unlist(con)
   }else{
     c0j0 <- colSums(part.dat)/sum(part.dat)
@@ -47,7 +47,7 @@ batch.entropy.corr <- function(part.dat,sample_point,corr = T){
 }
 
 
-entropyforboots.corrected <- function(feed,products,weights,recal = T, con.corr = T,idx = idx){
+entropyforboots.corrected <- function(feed,products,weights,recal = T, con.mass.balance = T,idx = idx){
   #CALCULATIONS FOR FEEDSTAGE
   
   # extensive properties for feed stage:
@@ -58,7 +58,10 @@ entropyforboots.corrected <- function(feed,products,weights,recal = T, con.corr 
   Fijk <- feed
   
   # calculation of intensive properties:
-  if (con.corr == F){
+  
+  
+  
+  if (con.mass.balance == F){
     cij0 <- map(Fij0,~.x/sum(.x)) 
   }else{
     if(recal == T){
@@ -68,8 +71,8 @@ entropyforboots.corrected <- function(feed,products,weights,recal = T, con.corr 
     }else{
       cij0 <- map(names(feed),~grouped_concentrations[.x,]/100)
     }
-    con_weighting <- map(cij0,~1/(1-.x$Rest)) 
-    cij0 <- map(cij0,~select(.x,-Rest))
+    # con_weighting <- map(cij0,~1/(1-.x$Rest)) 
+    # cij0 <- map(cij0,~select(.x,-Rest))
     cij0 <- map(cij0,unlist) 
     
   }
@@ -134,8 +137,6 @@ entropyforboots.corrected <- function(feed,products,weights,recal = T, con.corr 
     cij0 <- map(Pij0,~.x/sum(.x)) 
   }else{
     cij0 <- map(names(products),~grouped_concentrations[.x,]/100)
-    con_weighting <- map(cij0,~1/(1-.x$Rest)) 
-    cij0 <- map(cij0,~select(.x,-Rest))
     cij0 <- map(cij0,unlist) 
   }
   

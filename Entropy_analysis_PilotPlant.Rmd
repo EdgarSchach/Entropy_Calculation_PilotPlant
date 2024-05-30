@@ -292,23 +292,23 @@ This function draws the particle bootstraps from the original population and cal
 #   summarise(mean_entropy = mean(entropy), sd_entropy = sd(entropy))
 # save(Entropies.agg_grouped_uncorrected,file = "Entropies_grouped_uncorrected.RData")
 # 
- availableCores()
- plan(multisession,workers = availableCores() -1)
-
-batch_entropy.parallel <- function(sample_point,part.numbers,particle_data){
-  pd <- particle_data[[sample_point]]
-  idx <- sample(1:nrow(pd),size = part.numbers,replace = T)
-  pd <- pd[idx,]
-  entropy = batch.entropy.corr(pd,sample_point = sample_point,corr = T)
-  return(entropy)
-}
-
-Entropies_grouped_corrected <-  map(sample_points, ~future_replicate(20,batch_entropy.parallel(sample_point = .x,part.numbers = 100000,particle_data = part_dat_grouped),future.seed = T,simplify = F))
-names(Entropies_grouped_corrected) <- sample_points
-Entropies.agg_grouped_corrected <- Entropies_grouped_corrected %>% map(~bind_rows(.x,.id = "N")) %>% bind_rows(.id = "Sample") %>%
-  group_by(Sample,entropy_type,aggregation) %>%
-  summarise(mean_entropy = mean(entropy), sd_entropy = sd(entropy))
-save(Entropies.agg_grouped_corrected,file = "Entropies_grouped_corrected.RData")
+#  availableCores()
+#  plan(multisession,workers = availableCores() -1)
+# 
+# batch_entropy.parallel <- function(sample_point,part.numbers,particle_data){
+#   pd <- particle_data[[sample_point]]
+#   idx <- sample(1:nrow(pd),size = part.numbers,replace = T)
+#   pd <- pd[idx,]
+#   entropy = batch.entropy.corr(pd,sample_point = sample_point,corr = T)
+#   return(entropy)
+# }
+# 
+# Entropies_grouped_corrected <-  map(sample_points, ~future_replicate(20,batch_entropy.parallel(sample_point = .x,part.numbers = 100000,particle_data = part_dat_grouped),future.seed = T,simplify = F))
+# names(Entropies_grouped_corrected) <- sample_points
+# Entropies.agg_grouped_corrected <- Entropies_grouped_corrected %>% map(~bind_rows(.x,.id = "N")) %>% bind_rows(.id = "Sample") %>%
+#   group_by(Sample,entropy_type,aggregation) %>%
+#   summarise(mean_entropy = mean(entropy), sd_entropy = sd(entropy))
+# save(Entropies.agg_grouped_corrected,file = "Entropies_grouped_corrected.RData")
 
  load("Entropies_grouped_uncorrected.RData")
  load("Entropies_grouped_corrected.RData")
@@ -732,20 +732,28 @@ test_2 <- machine.entropy(machine = machines$Mill1,particle.numbers = particle.n
 machine_entropies <- map(machines,~machine.entropy(.x,particle.numbers = particle.numbers,total.number = 100000,replicates = 250)) 
 save(machine_entropies,file = "machine_entropies.RData")
 load("./machine_entropies.RData")
+
+
 machine_entropies_uncorr <- map(machines,~machine.entropy(.x,particle.numbers = particle.numbers,total.number = 100000,replicates = 250)) 
 save(machine_entropies_uncorr,file = "machine_entropies_uncorr.RData")
+load("./machine_entropies_uncorr.RData")
+machine_entropies_uncorr <- map(machine_entropies_uncorr,transpose)
+t_values_uncorr <- map(machine_entropies_uncorr,~.x$t_values)
+machine_entropies_agg <- map(machine_entropies_uncorr,~.x$entropy)
+machine_entropies_agg <- machine_entropies_agg %>% map(~bind_rows(.x,.id = "N")) %>% bind_rows(.id = "machine") %>% group_by(machine,stage,aggregation,entropy_type) %>% 
+  summarise(mean_entropy = mean(entropy),sd_entropy = sd(entropy))
 
 machine_entropies_agg. <- machine_entropies %>% bind_rows(.id = "machine") %>% filter(aggregation != "c0j0.tij0.pijk")
 
-g <- ggplot(machine_entropies_agg.,aes(x = aggregation, y = mean_entropy, fill = entropy_type)) +
+g <- ggplot(machine_entropies_agg,aes(x = aggregation, y = mean_entropy, fill = entropy_type)) +
   geom_bar(stat = "identity") +
   facet_grid(machine~stage) +
   theme_bw() +
   scale_fill_manual(values = entropy_colors)
 print(g)
 
-feed_stage <- machine_entropies_agg. %>% filter(stage == "feed")
-product_stage <- machine_entropies_agg. %>% filter(stage == "product")
+feed_stage <- machine_entropies_agg %>% filter(stage == "feed")
+product_stage <- machine_entropies_agg %>% filter(stage == "product")
 
 
 entropy_differences <- right_join(feed_stage,product_stage,by = c("machine","aggregation","entropy_type")) %>% mutate(entropy_diff = mean_entropy.y-mean_entropy.x)
@@ -761,7 +769,7 @@ g <- ggplot(entropy_differences,aes(x = entropy_type,y = entropy_diff)) +
   theme_bw()
 print(g)
 
-ggsave(filename = "machine.entropies.png",device = "png",width = 30, height = 20, units = "cm")
+ggsave(filename = "machine.entropies.corr.png",device = "png",width = 30, height = 20, units = "cm")
 
 ```
 
