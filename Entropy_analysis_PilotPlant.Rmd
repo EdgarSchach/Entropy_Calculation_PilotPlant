@@ -160,7 +160,10 @@ group_minerals <- function(x){
   return(x)
 }
 
+ECD <- map(SamplesMLA,~sqrt(4*.x$geomProps$ParticleArea/pi))
 part_dat_grouped <- map(part_dat,group_minerals)
+part_dat_grouped <- map(part_dat_grouped,~.x/100)
+part_dat_grouped <- map2(part_dat_grouped,ECD,~t(sweep(t(.x),2,.y*2/3*10^(-12),"*")))
 grouped_concentrations <- group_minerals(concentrations)
 corrected_concentrations <- grouped_concentrations %>% select(-Rest) %>% clo
 
@@ -310,8 +313,8 @@ This function draws the particle bootstraps from the original population and cal
 #   summarise(mean_entropy = mean(entropy), sd_entropy = sd(entropy))
 # save(Entropies.agg_grouped_corrected,file = "Entropies_grouped_corrected.RData")
 
- load("Entropies_grouped_uncorrected.RData")
- load("Entropies_grouped_corrected.RData")
+ load("Entropies_grouped_sample.RData.RData")
+ load("Entropies_grouped_massbalance.RData")
 
 ```
 
@@ -675,49 +678,40 @@ ggsave(filename = "batch.entropies_grouped_uncorrected.png",device = "png",width
 
 
 ```{r}
-machine <- machines$`Screw Class.`
-particle.numbers
-total.number <-  100000
-replicates <- 20
+
+parallel.calculation <- function(samples,numbers,machine){
+idx <- map2(samples,numbers,~sample(c(1:nrow(.x)),size = .y,replace = T))
+boots <- map2(samples,idx,~.x[.y,])
+boots_f <- boots[machine$feed_stage] %>% map(as.data.frame)
+boots_p <- boots[machine$product_stage] %>% map(as.data.frame)
+boots_f_recal <- list(bind_rows(boots_p))
+pl <- length(machine$product_stage)
+if(pl > 1){
+entropy <- entropyforboots.corrected(boots_f_recal,boots_p,weights = machine$weights,recal = T, con.mass.balance  = F,idx = idx)
+}else{
+entropy <- entropyforboots.corrected(boots_f,boots_p,weights = machine$weights, recal = F, con.mass.balance = F,idx = idx)
+}
+return(entropy)
+}
+
 machine.entropy <- function(machine,particle.numbers,total.number,replicates){
 pl <- length(machine$product_stage)
 p_n <- total.number
-
 if(pl > 1){
-  phi_products = clo(particle.numbers[machine$product_stage]*machine$weights[machine$product_stage])
-  phi_feed <- clo(particle.numbers[machine$feed_stage]*machine$weights[machine$feed_stage])
-  phi <- c(phi_feed,phi_products)
+phi_products = clo(particle.numbers[machine$product_stage]*machine$weights[machine$product_stage])
+phi_feed <- clo(particle.numbers[machine$feed_stage]*machine$weights[machine$feed_stage])
+phi <- c(phi_feed,phi_products)
 }else{
-  phi = clo(particle.numbers[c(machine$feed_stage,machine$product_stage)]*machine$weights)
+phi = clo(particle.numbers[c(machine$feed_stage,machine$product_stage)]*machine$weights)
 }
-
 p_num <- phi*p_n
-
 samples <- part_dat_grouped[c(machine$feed_stage,machine$product_stage)]
 numbers <- p_num
-
-parallel.calculation <- function(samples,numbers){
-idx <- map2(samples,numbers,~sample(c(1:nrow(.x)),size = .y,replace = T))
-boots <- map2(samples,idx,~.x[.y,])
-boots_f <- boots[machine$feed_stage]
-boots_p <- boots[machine$product_stage]
-boots_f_recal <- list(bind_rows(boots_p))
-
-
-if(pl > 1){
-entropy <- entropyforboots.corrected(boots_f_recal,boots_p,weights = machine$weights,recal = T, con.corr = F,idx = idx)
-}else{
-entropy <- entropyforboots.corrected(boots_f,boots_p,weights = machine$weights, recal = F, con.corr = F,idx = idx)
-}
-
-return(entropy)
-}
 availableCores()
 plan(multisession,workers = availableCores() -1)
-#entropies <- parallel.calculation(samples = samples,numbers = p_num)
-entropies <-  future_replicate(replicates,parallel.calculation(samples = samples,numbers = p_num),future.seed = T,simplify = F)
-
-# entropies_agg <- entropies %>% bind_rows(.id = "N") %>% group_by(stage,aggregation,entropy_type) %>% 
+#entropies <- parallel.calculation(samples = samples,numbers = p_num,machine = machine)
+entropies <-  future_replicate(replicates,parallel.calculation(samples = samples,numbers = p_num,machine = machine),future.seed = T,simplify = F)
+# entropies_agg <- entropies %>% bind_rows(.id = "N") %>% group_by(stage,aggregation,entropy_type) %>%
 #   summarise(mean_entropy = mean(entropy),sd_entropy = sd(entropy))
 return(entropies)
 }
@@ -729,17 +723,19 @@ test_2 <- machine.entropy(machine = machines$Mill1,particle.numbers = particle.n
 
 #entropies_agg %>% group_by(stage,aggregation) %>% summarise(entropy = sum(mean_entropy))
 
-machine_entropies <- map(machines,~machine.entropy(.x,particle.numbers = particle.numbers,total.number = 100000,replicates = 250)) 
-save(machine_entropies,file = "machine_entropies.RData")
-load("./machine_entropies.RData")
+machine_entropies_sample <- map(machines,~machine.entropy(.x,particle.numbers = particle.numbers,total.number = 100000,replicates = 250)) 
+save(machine_entropies_sample,file = "machine_entropies_sample.RData")
+load("./machine_entropies_sample.RData")
 
 
-machine_entropies_uncorr <- map(machines,~machine.entropy(.x,particle.numbers = particle.numbers,total.number = 100000,replicates = 250)) 
-save(machine_entropies_uncorr,file = "machine_entropies_uncorr.RData")
-load("./machine_entropies_uncorr.RData")
-machine_entropies_uncorr <- map(machine_entropies_uncorr,transpose)
-t_values_uncorr <- map(machine_entropies_uncorr,~.x$t_values)
-machine_entropies_agg <- map(machine_entropies_uncorr,~.x$entropy)
+machine_entropies_massbalance <- map(machines,~machine.entropy(.x,particle.numbers = particle.numbers,total.number = 100000,replicates = 250)) 
+save(machine_entropies_massbalance,file = "machine_entropies_massbalance.RData")
+load("./machine_entropies_massbalance.RData")
+
+
+machine_entropies_sample <- map(machine_entropies_sample,transpose)
+t_values_uncorr <- map(machine_entropies_sample,~.x$t_val)
+machine_entropies_agg <- map(machine_entropies_sample,~.x$entropy)
 machine_entropies_agg <- machine_entropies_agg %>% map(~bind_rows(.x,.id = "N")) %>% bind_rows(.id = "machine") %>% group_by(machine,stage,aggregation,entropy_type) %>% 
   summarise(mean_entropy = mean(entropy),sd_entropy = sd(entropy))
 
