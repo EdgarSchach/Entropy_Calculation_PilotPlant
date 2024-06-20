@@ -1,0 +1,469 @@
+---
+title: 'Supplementary materials: Examples of entropy calculations with R'
+author: "Edgar Schach, Raimon Tolosana et al."
+date: "2023-07-12"
+output:
+  html_document:
+    df_print: paged
+---
+
+## System setup
+
+This document is an R-markdown file for illustration of the main findings of the paper xxxx by xxxx. R-markdown files can be interactively edited, executed and visualised with the integrated developing interface [R-Studio](www.posit.com/rstudio) for the data science [R programming language](www.r-project.org)
+
+```{r} 
+# loading packages
+library(tidyverse)    # set of packages for data science
+library(purrr)        # package for parallel data manipulation
+library(RColorBrewer) # color scales
+library(ggpubr)       # publication-ready diagrams
+
+# define entropy colors and entropy contribution sources 
+cols_component.dist <- brewer.pal(n = 5, name = "Blues")[2:5]
+names(cols_component.dist) <- c("c0j0","cij0","c0jk","cijk")
+
+cols_particle.dist <- brewer.pal(n = 4, name = "Greens")
+names(cols_particle.dist) <- c("p00k","p0jk","pi0k","pijk")
+
+cols_partition.vec <- brewer.pal(n = 4, name = "Reds")
+names(cols_partition.vec) <- c("ti00","ti0k","tij0","tijk")
+
+entropy_colors <- c(cols_component.dist,
+                    cols_particle.dist,
+                    cols_partition.vec)
+
+type.levels <- c("ti00","ti0k","tij0","tijk", # partitions
+                 "p00k","p0jk","pi0k","pijk", # distributions
+                 "c0j0","cij0","c0jk","cijk") # compositions
+
+# load computing functions 
+source("Entropy_Functions-toSubmit.R")
+```
+
+
+## Creating Particles
+
+The function `particles_create()` generates a particle data set, with $K$ particles and $J$ components:
+```{r}
+set.seed(523)
+feed_part <- particle_create(K = 100, J =2, l = 0.2)
+head(feed_part) # show a few lines of the particle object
+```
+
+This can be plotted as a stacked bar plot, with bar total height indicating particle size: 
+```{r}
+feed_part_df <- data.frame(feed_part, particle = 1:nrow(feed_part) ) %>% gather(key = "Components", value = "mass", -particle) 
+
+g <- ggplot(feed_part_df,aes(x = particle, y = mass, fill = Components)) +
+  geom_bar(stat = "identity") +
+  theme_bw() + ylab("size")
+print(g)
+ggsave(filename= "feed.part.png",device = "png", units = "cm",dpi = 300,width = 15,height = 7.5)
+```
+
+
+
+## On the comminution models
+
+Given the 0-dimensional description of particles, comminution simulation is simulated as well at that conceptual level. The following two breakage styles are considered:
+
+- **Liberation breakage** generates, out of each particle, at most $J$ child particles, each containing the whole mass of one of the components of the parent particle. Already liberated particles do not break further.
+- **Random breakage** generates, for each parent particle, $L$ child particles ($L$ equally probable integer between 2 and 5), each capturing a random proportion $\boldsymbol{\pi}_j$ of the mass of each of the $J$ components present. These random proportions are drawn from a symmetric Dirichlet distribution $\mathcal{D}i(a\cdot \mathbf{1})$ with a a real value $a$ uniformly drawn from the interval $(0.01, 5)$. Each particle breaks with different values of $\{L, \boldsymbol{\pi}_1, \boldsymbol{\pi}_2, \ldots, \boldsymbol{\pi}_J, a\}$.  
+
+These two modes are combined in a global `comminute()` function, which can control the proportion of breaking particles subject to random breakage, and the proportion of particles being broken (in which case, larger particles tend to break faster than smaller ones). 
+
+The following shows four settings, with particles breaking with different proportions of random breakage
+
+```{r}
+# break feed following several styles
+set.seed(523)
+perfect.liberation = comminute(feed_part, prob_rnd_break = 0)
+overgrinding = comminute(perfect.liberation$progeny)
+set.seed(523)
+realistic.comminution = comminute(feed_part, prob_rnd_break = 0.5)
+set.seed(523)
+random.breakage = comminute(feed_part, prob_rnd_break = 1)
+
+# combine in a list
+comminution.res <- list(
+  perfect.liberation = perfect.liberation,
+  overgrinding = overgrinding,
+  realistic.comminution = realistic.comminution,
+  random.breakage = random.breakage
+)
+
+# define a function for plotting one breakage product
+doOnePlot <- function(partset, title){
+    partset_df <- data.frame(partset$progeny, particle = 1:nrow(partset$progeny) ) %>% 
+      gather(key = "Components", value = "mass", -particle) 
+
+ g <- ggplot(partset_df, aes(x = particle, y = mass, fill = Components)) +
+  geom_bar(stat = "identity") + ylab("size") +
+  theme_bw() + ggtitle(title) 
+ return(g)
+}
+
+# compute plots for all breakage products
+plots <- map2(comminution.res, 
+              c("perfect liberation",  "overgrinding", 
+                "realistic comminution", "random breakage"), 
+              doOnePlot)
+
+# combine
+ggpubr::ggarrange(plotlist = plots, 
+          nrow = 2, ncol=2,
+          common.legend = T,
+          legend = "bottom")
+```
+
+
+## On the partition curve model
+
+We use for our calculations Rogers' model for density separation, programmed in the function `separate()`. This function has a sharpness parameter `alpha`, which can take three kinds of values:
+
+- for any real value of `alpha`, this is taken as the $alpha$ parameter of the Rogers' partition model, 
+
+$$
+t_c(\rho; a, \alpha, \rho_0) = a + (1-a)\frac{1}{1+\frac{\rho_0}{\rho}\exp\left[\alpha\left(1-\frac{\rho^3}{\rho_0^3}\right)\right]} 
+$$
+where $\rho_0$ represents the cutoff density and $a$ is a maximum recovery;
+- for `alpha` infinite, a perfect separation model is taken, 
+
+$$
+t_c(\rho; \alpha, \rho_0) = 
+\left\{
+\begin{array}{cl}
+ 1 & \text{if  } \mathrm{sign}(\alpha)\rho >\mathrm{sign}(\alpha)\rho_0 \\
+ 0 & \text{otherwise}
+\end{array}
+\right.
+$$
+- for `alpha=NA` (not available), a perfect splitting is considered, e.g. with $t_c(\rho) = 0.5$. 
+
+The following code generates examples for all cases:
+```{r}
+# set of alpha values to consider
+alpha <- c(NA, 0:10, Inf)
+
+# densities specified for each phase
+densities <- c(A = 2.7, B = 7) # e.g. quartz and cassiterite
+
+# construct names out of the alpha levels considered
+nms <- sapply(alpha,function(x) paste("alpha =",x,sep = " ") )
+# compute and extract partition coefficient 
+res <- lapply(alpha, separate, cut.point = 5, phase.property = densities, feed = feed_part)
+res <- lapply(res, function(x) data.frame(density = x$prop.vec, partition = x$prob.vec))
+names(res) <- nms
+
+# change alpha names to explicit mention of perfect models
+nb.cols <- length(res)
+names(res) = c("perfect splitting","alpha = 0","alpha = 1","alpha = 2","alpha = 3","alpha = 4","alpha = 5","alpha = 6","alpha = 7","alpha = 8","alpha = 9","alpha = 10","perfect separation")
+nms <- names(res)
+
+# recast results as data set and plot
+res_df <- bind_rows(res,.id = "alpha")
+res_df$alpha <- factor(res_df$alpha, ordered=TRUE, levels=nms, labels=nms)
+
+mycolors <- colorRampPalette(brewer.pal(8, "Spectral"))(nb.cols)
+
+g <- ggplot(res_df,aes(x = density,y = partition, col = alpha))+
+  geom_point() +
+  geom_line() +
+  theme_bw() +
+  labs(x = "particle density in g/cm³",y = "partition", col = "alpha levels") +
+  scale_color_manual(values = mycolors)
+print(g)
+ggsave(filename= "rogers.function.png",device = "png", units = "cm",dpi = 300,width = 15,height = 10)
+```
+
+
+## Entropy of comminution products
+
+With the comminution products simulated before, we can now compute batch entropies and compare the effect of the several comminution modes on entropy contributions:
+
+```{r}
+# compute entropy of each batch, inlcuding feed
+comminution.res <- lapply(comminution.res,function(x) x$progeny)
+comminution.res[["feed"]] <- feed_part
+comminution.res_ent <- lapply(comminution.res, compute_batch_entropy)
+comminution.res_ent <- bind_rows(comminution.res_ent,.id = "scenario")
+
+# change names
+comminution.res_ent$scenario <-
+  fct_relevel(comminution.res_ent$scenario,
+              "feed", "perfect.liberation", "overgrinding",
+              "realistic.comminution", "random.breakage")
+
+labs_scenarios <- 
+  c("feed", "perfect liberation", "overgrinding", "reference comminution", "random breakage")
+names(labs_scenarios) <- levels(comminution.res_ent$scenario)
+
+# plot!
+g <- ggplot(comminution.res_ent,aes(x = .id, y = value, fill = factor(contribution, levels = type.levels))) +
+  geom_bar(stat = "identity") +
+  facet_grid(.~scenario,scales = "free", space = "free", labeller = labeller(scenario = labs_scenarios))+
+  theme_bw() +
+ scale_fill_manual(values = entropy_colors) +
+  labs(x = " ", y = expression(Delta~ ~s*"*"), fill = "contribution")
+print(g)
+ggsave(filename= "component.dispersion.png",device = "png", units = "cm",dpi = 300,width = 21,height = 10)
+```
+
+
+## Evolution of entropy through comminution and separation 
+
+The following code combines realistic setups for comminution and separation, and computes the entropy of the several stages:
+
+```{r echo=FALSE}
+#milling feed particles
+set.seed(523)
+milling.prod <- comminute(as.matrix(feed_part), prob_rnd_break = 0.5)
+milling.prod <- milling.prod$progeny
+
+#separation of milled feed
+set.seed(11523)
+res_sep <- separate(feed = milling.prod, cut.point = 5, 
+                    phase.property = densities, alpha = 5)
+
+#computing entropies for different stages
+res <- list(feed = compute_batch_entropy(feed_part),
+            comminution = compute_batch_entropy(milling.prod),
+            separation = compute_stage_entropy(res_sep))
+# mass_pulls = attr(res$separation, "mass_pulls")
+res <- bind_rows(res,.id = "stage")
+
+#plotting entropies
+g <- ggplot(res,aes(x = .id, y = value, fill = factor(contribution,levels = type.levels))) +
+  geom_bar(stat = "identity") +
+  facet_grid(.~fct_relevel(stage,"feed"),scales = "free", space = "free")+
+  theme_bw() +
+ scale_fill_manual(values = entropy_colors) +
+  labs(x = "stage",y =expression(Delta~ ~s*"*"), fill = "contribution")
+print(g)
+
+res_feed <- res %>% filter(stage == "feed")
+res_comminution <- res %>% filter(stage == "comminution")
+res_separation <- res %>% filter(stage == "separation")
+ent.max <- res %>% group_by(stage,.id) %>% summarize(sum_ent = sum(value))
+ent.max <- max(ent.max$sum_ent)
+lims <- c(0,ent.max)
+
+g <- ggplot(res_feed,aes(x = .id, y = value, fill = factor(contribution,levels = type.levels))) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+ scale_fill_manual(values = entropy_colors) +
+ scale_y_continuous(limits = lims,oob = scales::oob_keep) +
+  labs(title = "feed",x = "",y = expression(Delta~ ~s*"*"), fill = "contribution")
+print(g)
+
+h <- ggplot(res_comminution, aes(x = .id, y = value, fill = factor(contribution, levels = type.levels))) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+ scale_fill_manual(values = entropy_colors) +
+ scale_y_continuous(limits = lims,oob = scales::oob_keep) +
+  labs(title = "comminution",x = "",y = expression(Delta~ ~s*"*"), fill = "contribution")
+print(h)
+
+
+
+i <- ggplot(res_separation,aes(x = .id, y = value, fill = factor(contribution, levels = type.levels))) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+ scale_fill_manual(values = entropy_colors) +
+ scale_y_continuous(limits = lims, oob = scales::oob_keep) +
+  labs(title = " ",x = "",y = expression(Delta~ ~s*"*"), fill = "contribution") +
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5, size = 12))
+print(i)
+ggsave(filename= "entropy.aggregations.png",device = "png", units = "cm",dpi = 300,width = 15,height = 10)
+
+dat <- res_separation %>% filter(.id %in% c("ti00.cij0.pijk","ti00.pi0k.cijk"))
+
+j <- ggplot(dat,aes(x = .id, y = value, fill = factor(contribution, levels = type.levels))) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+ scale_fill_manual(values = entropy_colors) +
+ scale_y_continuous(limits = lims,oob = scales::oob_keep) +
+  labs(title = "separation",x = "",y = expression(Delta~ ~s*"*"), fill = "contribution")
+print(i)
+
+
+
+plots = list(feed = g,
+             comminution = h,
+             separation = j)
+
+ggarrange(plotlist = plots,nrow = 1,
+          common.legend = T,
+          legend = "right",
+          hjust = c(-2,-0.4,-1),
+          vjust = 0.5,
+          heights = c(0.7,0.7,0.7),
+         legend.grob = get_legend(plots),
+          widths = c(1,1,1))
+
+
+ggsave(filename= "flowsheet.png",device = "png", units = "cm",dpi = 300,width = 20,height = 10)
+
+```
+
+
+## Entropy generation by separation
+
+This code explores the role of separation on increasing the uncertainty about the fate of particles, and how this uncertainty is partly or totally compensated by the generation of purer products:
+
+```{r}
+# separation model parameters
+densities <- c(2.7,7)
+cut.point <- 5
+
+# compute separations
+set.seed(11523)
+sep_res <- 
+  list(perfect.separation=Inf, realistic.separation=5, perfect.splitting=NA) %>%
+  lapply( function(alpha){
+    separate(feed = realistic.comminution$progeny, 
+             phase.property = densities, 
+             alpha=alpha, cut.point = 5)
+  } )
+
+# compute entropies
+sep_res_ent <- lapply(sep_res, compute_stage_entropy)
+
+# add initial entropy of the feed
+sep_res_ent[["feed"]] <- compute_batch_entropy(realistic.comminution$progeny)
+
+# reform outcome for plotting
+sep_res_ent <- bind_rows(sep_res_ent,.id = "scenario")
+a <- sep_res_ent$.id
+a[a == "c0j0.p0jk"] <- "c0j0.p0jk.tijk"
+a[a == "p00k.c0jk"] <- "p00k.c0jk.tijk"
+sep_res_ent$.id <- a
+
+dat <- sep_res_ent %>% filter(.id %in% c("ti00.cij0.pijk","c0j0.p0jk.tijk"))
+dat$scenario <- str_replace(dat$scenario,pattern = "\\."," ")
+# plot!
+labels_entropy <- c("c0j0.p0jk.tijk", "ti00.cij0.pijk")
+
+g <- ggplot(dat,aes(x = fct_relevel(scenario,"feed","perfect separation","realistic separation","perfect splitting"), y = value, fill = factor(contribution, levels = type.levels))) +
+  geom_bar(stat = "identity") +
+  facet_grid(.~factor(.id, levels = labels_entropy), scales = "free", space = "free")+
+  theme_bw() +
+  scale_fill_manual(values = entropy_colors) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5, size = 12)) +
+  labs(x = " ",y = expression(Delta~ ~s*"*"), fill = "contribution") 
+ # scale_x_discrete(labels =c("feed","perfect separation","reference separation","perfect splitting"))
+print(g)
+ggsave(filename= "separation.integrowth.png",device = "png", units = "cm",dpi = 300,width = 15,height = 10)
+```
+
+## Optimization of comminution-separation setup
+
+Finally the next code shows how to compute several scenarios for partial comminution followed by a realistic separation, in order to evaluate the best comminution configuration in terms of maximal entropy reduction. Given the inherent variability induced by the simulations, the calculations are repeated 50 times to obtain an expected behaviour:
+
+```{r}
+# function doing one calculation
+one_simulation = function(nsteps){
+ # make space for all consecutive comminution products
+ rescom <- matrix(0:nsteps, nrow=1) %>% as.data.frame %>% as.list
+ rescom[[1]] =  particle_create(K = 200, J =5, l = 0.05) # feed
+
+ # consecutively mill in nsteps, store only progeny particles
+ for(i in 2:(nsteps+1)){
+  rescom[[i]] = comminute(rescom[[i-1]], 
+                       prob_rnd_break = 0.25, 
+                       process_fraction = 0.05 )$progeny
+ }
+
+ # apply separation to each milling stage
+ densities <- c(2,3,2.5,4.5,6)
+ ressep <- lapply(rescom, separate, alpha = 5, phase.property = densities, cut.point = 5)
+
+ # compute entropies post-separation
+ ent_com <- lapply(ressep, compute_stage_entropy)
+
+  # extract mass pulls and compute grades and recoveries
+ mass_pulls = lapply(ent_com, function(x)attr(x, "mass_pulls") )
+ 
+ # reorder for plotting
+ entropies = map_dbl(ent_com, function(x) x %>% filter(.id=="ti00.cij0.pijk") %>% 
+  filter(contribution!="ti00") %>% summarize(total = sum(value)) %>% 
+    unclass %>% unlist
+ )
+ 
+ # compute initial entropy
+ ent.feed <- compute_batch_entropy(rescom[[1]])
+ ent.feed <- ent.feed %>% filter(.id == "p00k.c0jk") %>% summarise(s = sum(value))
+ 
+ out = 100*(ent.feed$s - entropies)/ent.feed$s
+
+ # attach mass pulls
+ attr(out, "mass_pulls") = mass_pulls
+ 
+ # return entropy decreases
+ return(out)
+}
+
+# compute 50 scenarios
+nsteps= 30
+set.seed(523)
+outcomes_l = replicate(n = 50, expr = one_simulation(nsteps), simplify = FALSE)
+
+# re-form
+outcomes = do.call("cbind", outcomes_l)
+colnames(outcomes) = paste0("V",1:ncol(outcomes))
+
+# compute average over the scenarios
+av_outcome = rowMeans(outcomes)
+
+# plot!
+g <- outcomes %>% as.data.frame %>% cbind(cycles=0:nsteps) %>% 
+   tidyr::pivot_longer(cols=contains("V"), values_to="entropy") %>%
+    ggplot(aes(x = cycles, y = entropy)) +
+    geom_path(aes(group=name), color="darkgrey") + 
+    geom_path(data=data.frame(cycles = 0:nsteps, entropy=av_outcome), 
+              color="red", lwd=2) +   theme_bw() +
+  ylab(expression(Delta~ ~s*"*  decrease [%]"))
+    
+print(g)
+ggsave(filename= "minimize.entropy.png",device = "png", units = "cm",dpi = 300,width = 15, height = 10)
+```
+
+Additionally, the following diagrams show the evolution of grade and recovery of value mineral (mineral E) on the concentrate (high density product), as a function of the number of grinding cycles. Again, curves for individual simulations are provided in grey, and their average is plotted as a red line.
+
+```{r}
+grad_rec = lapply(outcomes_l, 
+ function(y){
+  mass_pulls = attr(y, "mass_pulls")
+  grades = sapply(mass_pulls, function(x) sweep(x, 1, rowSums(x), "/")[1,"E"]) 
+  recoveries = sapply(mass_pulls, function(x) sweep(x, 2, colSums(x), "/")[1,"E"]) 
+  return(list(grades=grades, recoveries=recoveries))
+})
+
+grades = sapply(grad_rec, function(x) x$grades)
+recoveries = sapply(grad_rec, function(x) x$recoveries)
+
+colnames(grades) <- colnames(recoveries) <- colnames(outcomes)
+
+av_grade = rowMeans(grades)
+av_recovery = rowMeans(recoveries)
+
+
+# plot!
+g_g <- grades %>% as.data.frame %>% cbind(cycles=0:nsteps) %>% 
+   tidyr::pivot_longer(cols=contains("V"), values_to="grade") %>%
+    ggplot(aes(x = cycles, y = grade)) +
+    geom_path(aes(group=name), color="darkgrey") + 
+    geom_path(data=data.frame(cycles = 0:nsteps, grade=av_grade), 
+              color="red", lwd=2) +   theme_bw() + ylab("grade")
+
+g_r <- recoveries %>% as.data.frame %>% cbind(cycles=0:nsteps) %>% 
+   tidyr::pivot_longer(cols=contains("V"), values_to="recovery") %>%
+    ggplot(aes(x = cycles, y = recovery)) +
+    geom_path(aes(group=name), color="darkgrey") + 
+    geom_path(data=data.frame(cycles = 0:nsteps, recovery=av_recovery), 
+              color="red", lwd=2) +   theme_bw() + ylab("recovery")
+
+g_gr = egg::ggarrange(g_g, g_r,nrow = 1, ncol=2)
+print(g_gr)
+```
+
